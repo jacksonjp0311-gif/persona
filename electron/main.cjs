@@ -22,6 +22,7 @@ const {
   createMcpSettingsStatus,
 } = require("./mcp-settings-status.cjs");
 const { createSettingsStore } = require("./settings-store.cjs");
+const { connectCodexCli } = require("./codex-config.cjs");
 const {
   configureHyprlandWindow,
   getHyprlandWindowPlacement,
@@ -387,6 +388,7 @@ function animationCatalogSignature(snapshot) {
       id: animation.id,
       name: animation.animation_name,
       playableClipCount: animation.asset_urls.length,
+      proceduralPreset: animation.procedural_preset,
       trigger: animation.animation_trigger_scenario,
     })),
   );
@@ -425,7 +427,8 @@ function playConfiguredAnimation(animationName) {
   const installedAnimation = settingsStore?.getAnimation(animationName);
   if (
     installedAnimation == null ||
-    installedAnimation.asset_urls.length === 0
+    (installedAnimation.asset_urls.length === 0 &&
+      installedAnimation.procedural_preset == null)
   ) {
     return false;
   }
@@ -435,6 +438,7 @@ function playConfiguredAnimation(animationName) {
     animation: installedAnimation.animation_type ?? "CUSTOM",
     animationName: installedAnimation.animation_name,
     animationUrls: installedAnimation.asset_urls,
+    proceduralPreset: installedAnimation.procedural_preset,
     source: "command",
     requestId: animationCommandRequestId,
   });
@@ -719,6 +723,11 @@ if (!app.requestSingleInstanceLock()) {
     ipcMain.handle("persona:settings-set-default-model", (_event, modelId) =>
       publishSettings(settingsStore.setDefaultModel(modelId)),
     );
+    ipcMain.handle("persona:settings-deploy-model", (_event, modelId) => {
+      const snapshot = publishSettings(settingsStore.setDefaultModel(modelId));
+      showOverlay({ focus: true });
+      return snapshot;
+    });
     ipcMain.handle("persona:settings-set-character-size", (_event, size) =>
       publishSettings(settingsStore.setCharacterSize(size)),
     );
@@ -730,6 +739,15 @@ if (!app.requestSingleInstanceLock()) {
         settingsSnapshot: settingsStore.getSnapshot(),
       }),
     );
+    ipcMain.handle("persona:settings-connect-codex-cli", () => {
+      if (mcpServerHealth !== "online") {
+        throw new Error("Persona's local MCP server is not online yet.");
+      }
+      return connectCodexCli({
+        homeDirectory: app.getPath("home"),
+        serverUrl: `http://127.0.0.1:${mcpServerPort}/mcp`,
+      });
+    });
     ipcMain.on("persona:hide", () => void hideOverlay());
     // The resolved theme lives in renderer storage, so the window chrome can
     // only be corrected once the settings renderer reports it. Accepts the two
@@ -753,7 +771,11 @@ if (!app.requestSingleInstanceLock()) {
       getAnimations: () =>
         settingsStore
           .getSnapshot()
-          .animations.filter((animation) => animation.asset_urls.length > 0),
+          .animations.filter(
+            (animation) =>
+              animation.asset_urls.length > 0 ||
+              animation.procedural_preset != null,
+          ),
     });
     bridge = createBridgeServer({
       port: mcpServerPort,

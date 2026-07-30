@@ -190,6 +190,7 @@
       "animation_description": "A calm resting motion for the character.",
       "animation_trigger_scenario": "Used automatically while Persona is waiting and not speaking.",
       "animation_type": "IDLE",
+      "procedural_preset": "breathing-idle",
       "asset_paths": []
     },
     {
@@ -198,6 +199,259 @@
       "animation_description": "Natural conversational body movement while the character speaks.",
       "animation_trigger_scenario": "Used automatically while supported voice output is active.",
       "animation_type": "TALK",
+      "procedural_preset": "conversational-talk",
+      "asset_paths": []
+    },
+    {
+      "id": "nfl-quarterback-throw",
+      "animation_name": "quarterback-throw",
+      "animation_description": "A planted drop-back, throwing load, release, and follow-through.",
+      "animation_trigger_scenario": "Use for a pass, launch, decisive handoff, or big reveal.",
+      "animation_type": null,
+      "procedural_preset": "quarterback-throw",
+      "asset_paths": []
+    },
+    {
+      "id": "nfl-receiver-catch",
+      "animation_name": "receiver-catch",
+      "animation_description": "A balanced two-hand receiver catch in front of the chest.",
+      "animation_trigger_scenario": "Use when receiving a result, accepting an item, or completing a task.",
+      "animation_type": null,
+      "procedural_preset": "receiver-catch",
+      "asset_paths": []
+    },
+    {
+      "id": "nfl-touchdown-signal",
+      "animation_name": "touchdown-signal",
+      "animation_description": "Both arms lift into the unmistakable touchdown signal.",
+      "animation_trigger_scenario": "Use after a major success or completed deployment.",
+      "animation_type": "HAPPY",
+      "procedural_preset": "touchdown-signal",
+      "asset_paths": []
+    },
+    {
+      "id": "nfl-ball-spike",
+      "animation_name": "ball-spike",
+      "animation_description": "A forceful overhead-to-ground celebration spike.",
+      "animation_trigger_scenario": "Use for a dramatic win or emphatic completion.",
+      "animation_type": "HAPPY",
+      "procedural_preset": "ball-spike",
+      "asset_paths": []
+    },
+    {
+      "id": "nfl-first-down",
+      "animation_name": "first-down",
+      "animation_description": "A confident wide directional first-down gesture.",
+      "animation_trigger_scenario": "Use when progress crosses an important milestone.",
+      "animation_type": null,
+      "procedural_preset": "first-down",
+      "asset_paths": []
+    },
+    {
+      "id": "nfl-juke-left-right",
+      "animation_name": "juke-left-right",
+      "animation_description": "Quick lateral weight shifts inspired by an open-field juke.",
+      "animation_trigger_scenario": "Use for dodging obstacles, changing plans, or playful movement.",
+      "animation_type": null,
+      "procedural_preset": "juke-left-right",
+      "asset_paths": []
+    },
+    {
+      "id": "nfl-stiff-arm",
+      "animation_name": "stiff-arm",
+      "animation_description": "A braced running stance with one strong extended arm.",
+      "animation_trigger_scenario": "Use when blocking a problem or holding a boundary.",
+      "animation_type": null,
+      "procedural_preset": "stiff-arm",
+      "asset_paths": []
+    },
+    {
+      "id": "nfl-huddle-clap",
+      "animation_name": "huddle-clap",
+      "animation_description": "A rhythmic ready-up clap for the team huddle.",
+      "animation_trigger_scenario": "Use before starting a coordinated task.",
+      "animation_type": null,
+      "procedural_preset": "huddle-clap",
+      "asset_paths": []
+    },
+    {
+      "id": "nfl-victory-flex",
+      "animation_name": "victory-flex",
+      "animation_description": "A strong two-arm flex celebration.",
+      "animation_trigger_scenario": "Use for a personal best, win, or powerful result.",
+      "animation_type": "HAPPY",
+      "procedural_preset": "victory-flex",
+      "asset_paths": []
+    },
+    {
+      "id": "nfl-griddy-celebration",
+      "animation_name": "griddy-celebration",
+      "animation_description": "An original traveling celebration with alternating knees and swinging arms.",
+      "animation_trigger_scenario": "Use for a playful football-style touchdown celebration.",
+      "animation_type": "DANCE",
+      "procedural_preset": "griddy-celebration",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-two-step",
+      "animation_name": "two-step",
+      "animation_description": "A relaxed side-to-side two-step groove.",
+      "animation_trigger_scenario": "Use as an easy social dance or idle celebration.",
+      "animation_type": "DANCE",
+      "procedural_preset": "two-step",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-running-man",
+      "animation_name": "running-man",
+      "animation_description": "Alternating high-knee steps with counter-swinging arms.",
+      "animation_trigger_scenario": "Use for energetic retro dance moments.",
+      "animation_type": "DANCE",
+      "procedural_preset": "running-man",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-heel-toe-shuffle",
+      "animation_name": "heel-toe-shuffle",
+      "animation_description": "A compact heel-and-toe footwork shuffle.",
+      "animation_trigger_scenario": "Use for nimble dance breaks and playful transitions.",
+      "animation_type": "DANCE",
+      "procedural_preset": "heel-toe-shuffle",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-robot-pop",
+      "animation_name": "robot-pop",
+      "animation_description": "Angular arm locks and crisp torso pops.",
+      "animation_trigger_scenario": "Use for robotic, electronic, or beat-driven reactions.",
+      "animation_type": "DANCE",
+      "procedural_preset": "robot-pop",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-body-wave",
+      "animation_name": "body-wave",
+      "animation_description": "A smooth wave travels from the head through the torso.",
+      "animation_trigger_scenario": "Use for a fluid dance accent or transition.",
+      "animation_type": "DANCE",
+      "procedural_preset": "body-wave",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-moonwalk-glide",
+      "animation_name": "moonwalk-glide",
+      "animation_description": "A stylized backward-glide illusion with alternating feet.",
+      "animation_trigger_scenario": "Use for a smooth retro dance moment.",
+      "animation_type": "DANCE",
+      "procedural_preset": "moonwalk-glide",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-salsa-basic",
+      "animation_name": "salsa-basic",
+      "animation_description": "A compact forward-back basic with coordinated hip and arm motion.",
+      "animation_trigger_scenario": "Use for a warm, rhythmic Latin dance beat.",
+      "animation_type": "DANCE",
+      "procedural_preset": "salsa-basic",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-disco-point",
+      "animation_name": "disco-point",
+      "animation_description": "A classic alternating high-and-low disco point.",
+      "animation_trigger_scenario": "Use for bright retro celebrations.",
+      "animation_type": "DANCE",
+      "procedural_preset": "disco-point",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-hip-hop-bounce",
+      "animation_name": "hip-hop-bounce",
+      "animation_description": "A grounded knee-and-chest bounce with relaxed arm groove.",
+      "animation_trigger_scenario": "Use for a steady hip-hop groove.",
+      "animation_type": "DANCE",
+      "procedural_preset": "hip-hop-bounce",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-spin-celebration",
+      "animation_name": "spin-celebration",
+      "animation_description": "An open-arm celebratory turn.",
+      "animation_trigger_scenario": "Use for entrances, reveals, or joyful completions.",
+      "animation_type": "DANCE",
+      "procedural_preset": "spin-celebration",
+      "asset_paths": []
+    },
+    {
+      "id": "talk-open-hand-explain",
+      "animation_name": "open-hand-explain",
+      "animation_description": "Open palms and measured arm movement support an explanation.",
+      "animation_trigger_scenario": "Use while clarifying a concept or presenting options.",
+      "animation_type": null,
+      "procedural_preset": "open-hand-explain",
+      "asset_paths": []
+    },
+    {
+      "id": "talk-thoughtful-nod",
+      "animation_name": "thoughtful-nod",
+      "animation_description": "A reflective chin-touch pose with a gentle nod.",
+      "animation_trigger_scenario": "Use while considering a question or weighing evidence.",
+      "animation_type": null,
+      "procedural_preset": "thoughtful-nod",
+      "asset_paths": []
+    },
+    {
+      "id": "talk-agree-enthusiastic",
+      "animation_name": "agree-enthusiastic",
+      "animation_description": "Quick positive nods with an engaged forward posture.",
+      "animation_trigger_scenario": "Use to show strong agreement or confirmation.",
+      "animation_type": null,
+      "procedural_preset": "agree-enthusiastic",
+      "asset_paths": []
+    },
+    {
+      "id": "talk-disagree-shake",
+      "animation_name": "disagree-shake",
+      "animation_description": "A clear but friendly side-to-side head shake.",
+      "animation_trigger_scenario": "Use for a correction, warning, or disagreement.",
+      "animation_type": null,
+      "procedural_preset": "disagree-shake",
+      "asset_paths": []
+    },
+    {
+      "id": "talk-shrug",
+      "animation_name": "shrug",
+      "animation_description": "Raised hands and tilted head communicate uncertainty.",
+      "animation_trigger_scenario": "Use when an answer is unknown or depends on context.",
+      "animation_type": null,
+      "procedural_preset": "shrug",
+      "asset_paths": []
+    },
+    {
+      "id": "talk-welcome-wave",
+      "animation_name": "welcome-wave",
+      "animation_description": "A raised-hand wave with a warm upper-body turn.",
+      "animation_trigger_scenario": "Use for greetings, arrivals, and friendly sign-offs.",
+      "animation_type": "GREETING",
+      "procedural_preset": "welcome-wave",
+      "asset_paths": []
+    },
+    {
+      "id": "talk-big-idea",
+      "animation_name": "big-idea",
+      "animation_description": "A lifted index-hand pose signals a useful new idea.",
+      "animation_trigger_scenario": "Use when introducing an insight or recommended solution.",
+      "animation_type": null,
+      "procedural_preset": "big-idea",
+      "asset_paths": []
+    },
+    {
+      "id": "talk-calm-listen",
+      "animation_name": "calm-listen",
+      "animation_description": "A relaxed attentive stance with subtle listening nods.",
+      "animation_trigger_scenario": "Use while waiting for the user or receiving instructions.",
+      "animation_type": null,
+      "procedural_preset": "calm-listen",
       "asset_paths": []
     }
   ]

@@ -10,6 +10,7 @@ import {
 import { Scene } from './Scene';
 import {
   animationUrlsForType,
+  proceduralPresetForType,
   type PlayableAnimationType,
 } from '../animation-catalog';
 import {
@@ -117,7 +118,7 @@ function useThemePreference() {
 }
 
 const MCP_TOOL_DESCRIPTIONS: Record<string, string> = {
-  play_animation: 'Play any configured action with at least one animation clip.',
+  play_animation: 'Play any configured action with built-in motion or a clip.',
   list_animations: 'Read the latest playable actions and their usage details.',
   control_window: 'Show, hide, or toggle the Persona character window.',
   get_status: 'Read window, model, voice, and listener readiness.',
@@ -177,6 +178,7 @@ export function SettingsPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [mcpStatus, setMcpStatus] = useState<PersonaMcpStatus | null>(null);
   const [mcpLoading, setMcpLoading] = useState(false);
+  const [cliConnected, setCliConnected] = useState(false);
   const [confirmation, setConfirmation] =
     useState<ConfirmationRequest | null>(null);
   const [confirming, setConfirming] = useState(false);
@@ -273,14 +275,23 @@ export function SettingsPage() {
     (clip) => clip.id === previewClipId,
   );
   const previewAnimationUrls = useMemo(
-    () => (previewClip ? [previewClip.asset_url] : idleAnimationUrls),
-    [idleAnimationUrls, previewClip],
+    () =>
+      previewClip
+        ? [previewClip.asset_url]
+        : previewAnimation
+          ? []
+          : idleAnimationUrls,
+    [idleAnimationUrls, previewAnimation, previewClip],
   );
+  const previewProceduralPreset =
+    previewAnimation?.procedural_preset ??
+    proceduralPresetForType(settings.animations, 'IDLE');
 
   const previewTitle = useMemo(() => {
     if (previewClip) return previewClip.animation_name;
+    if (previewAnimation) return previewAnimation.animation_name;
     return 'Character preview';
-  }, [previewClip]);
+  }, [previewAnimation, previewClip]);
 
   const updateSnapshot = useCallback((snapshot: PersonaSettingsSnapshot) => {
     setSettings(snapshot);
@@ -435,6 +446,33 @@ export function SettingsPage() {
     if (snapshot) setSelectedModelId(modelId);
   };
 
+  const deployModel = async (modelId: string) => {
+    if (!bridge) return;
+    const snapshot = await run(
+      () => bridge.deployModel(modelId),
+      'Character deployed and opened on your desktop.',
+    );
+    if (snapshot) setSelectedModelId(modelId);
+  };
+
+  const connectToCodexCli = async () => {
+    if (!bridge) return;
+    setBusy(true);
+    setNotice(null);
+    try {
+      const result = await bridge.connectCodexCli();
+      setCliConnected(true);
+      setNotice(
+        `Codex CLI connected in ${result.config_path}. Start a new Codex session to load Persona.`,
+      );
+    } catch (error) {
+      setCliConnected(false);
+      setNotice(errorMessage(error));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const deleteModel = (model: PersonaModelSettings) => {
     if (!bridge || !model.removable) return;
     openConfirmation({
@@ -580,6 +618,15 @@ export function SettingsPage() {
   ) => {
     setPreviewAnimation(animation);
     setPreviewClipId(clip.id);
+    setPreviewRequest((request) => request + 1);
+  };
+
+  const playProceduralAnimation = (
+    animation: PersonaAnimationSettings,
+  ) => {
+    if (!animation.procedural_preset) return;
+    setPreviewAnimation(animation);
+    setPreviewClipId(null);
     setPreviewRequest((request) => request + 1);
   };
 
@@ -891,8 +938,8 @@ export function SettingsPage() {
                   <div>
                     <h2>Animation actions</h2>
                     <p>
-                      Click a VRMA clip to preview that exact animation. Persona
-                      chooses randomly between them when the action runs.
+                      Preview built-in motion on any character, or add VRMA
+                      clips as optional action variants.
                     </p>
                   </div>
                   <button
@@ -966,6 +1013,24 @@ export function SettingsPage() {
                       </div>
 
                       <div className="animation-clips">
+                        {animation.procedural_preset && (
+                          <button
+                            className={`procedural-preview-button ${
+                              previewAnimation?.id === animation.id &&
+                              previewClipId == null
+                                ? 'playing'
+                                : ''
+                            }`}
+                            onClick={() => playProceduralAnimation(animation)}
+                            type="button"
+                          >
+                            <span aria-hidden="true">▶</span>
+                            <span>
+                              <strong>Preview built-in motion</strong>
+                              <small>{animation.procedural_preset}</small>
+                            </span>
+                          </button>
+                        )}
                         <div className="animation-clips-heading">
                           <div>
                             <strong>VRMA clips</strong>
@@ -990,13 +1055,9 @@ export function SettingsPage() {
                         </div>
                         {animation.clips.length === 0 ? (
                           <p className="empty-clips">
-                            {animation.system
-                              ? `Upload one or more clips for the ${
-                                  animation.animation_type === 'IDLE'
-                                    ? 'idle'
-                                    : 'speaking'
-                                } state. Persona uses the model pose until then.`
-                              : 'Upload one or more clips to make this action available to MCP.'}
+                            {animation.procedural_preset
+                              ? 'Built-in motion is ready for preview, desktop commands, and MCP. Add VRMA files only if you want alternate clips.'
+                              : 'Upload one or more clips to make this custom action available to MCP.'}
                           </p>
                         ) : (
                           <div className="clip-list">
@@ -1469,7 +1530,7 @@ export function SettingsPage() {
                     <h2>Playable actions</h2>
                     <p>
                       Actions appear in the MCP animation tool after they have
-                      at least one VRMA clip.
+                      built-in motion or at least one VRMA clip.
                     </p>
                   </div>
                   <span className="file-pill">
@@ -1543,7 +1604,8 @@ export function SettingsPage() {
                     setPreviewAnimation(null);
                     setPreviewClipId(null);
                   }}
-                  playback={previewClip ? 'once' : 'loop'}
+                  proceduralPreset={previewProceduralPreset}
+                  playback={previewAnimation ? 'once' : 'loop'}
                   speaking={false}
                 />
               )}
@@ -1557,15 +1619,10 @@ export function SettingsPage() {
                   ? 'deployed'
                   : ''
               }`}
-              disabled={
-                busy ||
-                !bridge ||
-                !selectedModel ||
-                selectedModel.id === settings.default_model_id
-              }
+              disabled={busy || !bridge || !selectedModel}
               onClick={() => {
                 if (selectedModel) {
-                  void setDefaultModel(selectedModel.id);
+                  void deployModel(selectedModel.id);
                 }
               }}
               type="button"
@@ -1577,13 +1634,33 @@ export function SettingsPage() {
                 <strong>Deploy character</strong>
                 <small>
                   {selectedModel?.id === settings.default_model_id
-                    ? 'Active on your desktop'
+                    ? 'Open the active character on your desktop'
                     : `Switch Persona to ${selectedModel?.model_name ?? 'this model'}`}
                 </small>
               </span>
               {selectedModel?.id === settings.default_model_id && (
                 <span className="deploy-character-badge">Active</span>
               )}
+            </button>
+            <button
+              className={`connect-cli-button ${cliConnected ? 'connected' : ''}`}
+              disabled={busy || !bridge || mcpStatus?.health === 'unavailable'}
+              onClick={() => void connectToCodexCli()}
+              type="button"
+            >
+              <span className="connect-cli-icon" aria-hidden="true">
+                &gt;_
+              </span>
+              <span>
+                <strong>
+                  {cliConnected ? 'Connected to Codex CLI' : 'Connect to Codex CLI'}
+                </strong>
+                <small>
+                  {cliConnected
+                    ? 'Persona MCP is registered'
+                    : 'Register the local Persona MCP server'}
+                </small>
+              </span>
             </button>
             <div className="preview-now-playing">
               <span>Now previewing</span>

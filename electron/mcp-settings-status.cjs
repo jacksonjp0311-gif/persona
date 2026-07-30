@@ -27,7 +27,9 @@ function createMcpSettingsStatus({
   const playableActions = (settingsSnapshot?.animations ?? [])
     .filter(
       (animation) =>
-        Array.isArray(animation.asset_urls) && animation.asset_urls.length > 0,
+        (Array.isArray(animation.asset_urls) &&
+          animation.asset_urls.length > 0) ||
+        typeof animation.procedural_preset === "string",
     )
     .map((animation) => animation.animation_name);
 

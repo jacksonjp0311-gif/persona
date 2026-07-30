@@ -74,8 +74,10 @@ test("preload exposes only narrow Persona and settings IPC operations", async ()
   await settings.resetPackagedAnimations();
   await settings.deleteModel("model-id");
   await settings.setDefaultModel("model-id");
+  await settings.deployModel("model-id");
   await settings.setCharacterSize(1.2);
   await settings.getMcpStatus();
+  await settings.connectCodexCli();
   settings.setWindowTheme("light");
 
   assert.deepEqual(invocations, [
@@ -109,8 +111,10 @@ test("preload exposes only narrow Persona and settings IPC operations", async ()
     ["persona:settings-reset-packaged-animations"],
     ["persona:settings-delete-model", "model-id"],
     ["persona:settings-set-default-model", "model-id"],
+    ["persona:settings-deploy-model", "model-id"],
     ["persona:settings-set-character-size", 1.2],
     ["persona:settings-get-mcp-status"],
+    ["persona:settings-connect-codex-cli"],
   ]);
   assert.deepEqual(sent, [
     ["persona:hide"],

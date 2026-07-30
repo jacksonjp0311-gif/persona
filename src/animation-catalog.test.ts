@@ -50,14 +50,17 @@ describe('Persona animation contract', () => {
       {
         animation_type: 'TALK',
         asset_urls: ['talk1.vrma'],
+        procedural_preset: null,
       },
       {
         animation_type: 'IDLE',
         asset_urls: ['idle.vrma'],
+        procedural_preset: null,
       },
       {
         animation_type: 'TALK',
         asset_urls: ['talk2.vrma', 'talk3.vrma'],
+        procedural_preset: null,
       },
     ] as PersonaAnimationSettings[];
 

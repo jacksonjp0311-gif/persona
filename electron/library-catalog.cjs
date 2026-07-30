@@ -22,6 +22,7 @@ const SYSTEM_ANIMATIONS = Object.freeze([
     animation_trigger_scenario:
       "Used automatically while Persona is waiting and not speaking.",
     animation_type: "IDLE",
+    procedural_preset: "breathing-idle",
     asset_paths: Object.freeze([]),
   }),
   Object.freeze({
@@ -32,6 +33,7 @@ const SYSTEM_ANIMATIONS = Object.freeze([
     animation_trigger_scenario:
       "Used automatically while supported voice output is active.",
     animation_type: "TALK",
+    procedural_preset: "conversational-talk",
     asset_paths: Object.freeze([]),
   }),
 ]);
@@ -132,6 +134,21 @@ function validatePackagedLibrary(value) {
         `Packaged animation ${animation_name} must declare asset_paths.`,
       );
     }
+    const procedural_preset =
+      animation?.procedural_preset == null
+        ? null
+        : nonEmptyString(
+            animation.procedural_preset,
+            `animations[${index}].procedural_preset`,
+          ).toLowerCase();
+    if (
+      procedural_preset !== null &&
+      !ANIMATION_NAME_PATTERN.test(procedural_preset)
+    ) {
+      throw new Error(
+        `Invalid procedural animation preset: ${procedural_preset}.`,
+      );
+    }
     return {
       id,
       animation_name,
@@ -144,6 +161,7 @@ function validatePackagedLibrary(value) {
         `animations[${index}].animation_trigger_scenario`,
       ),
       animation_type,
+      procedural_preset,
       asset_paths: animation.asset_paths.map((entry, assetIndex) =>
         assetPath(
           entry,

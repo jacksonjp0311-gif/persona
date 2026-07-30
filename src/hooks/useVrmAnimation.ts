@@ -5,7 +5,7 @@ import {
   createVRMAnimationClip,
   type VRMAnimation,
 } from '@pixiv/three-vrm-animation';
-import type { VRM } from '@pixiv/three-vrm';
+import type { VRM, VRMHumanBoneName } from '@pixiv/three-vrm';
 import * as THREE from 'three';
 import {
   randomAnimationUrl,
@@ -16,11 +16,19 @@ import {
   crossFadeAnimationActions,
   type AnimationPlayback,
 } from '../animation-action';
+import {
+  PROCEDURAL_DURATIONS,
+  isProceduralPreset,
+  sampleProceduralPose,
+  type ProceduralBone,
+  type ProceduralPreset,
+} from '../procedural-animation';
 
 interface PlayOptions {
   animationUrls?: readonly string[];
   onComplete?: () => void;
   playback?: AnimationPlayback;
+  proceduralPreset?: string | null;
 }
 
 interface PendingCompletion {
@@ -48,11 +56,32 @@ export function useVrmAnimation(vrm: VRM | null) {
   );
   const requestGeneration = useRef(0);
   const pendingCompletion = useRef<PendingCompletion | null>(null);
+  const procedural = useRef<{
+    elapsed: number;
+    onComplete?: () => void;
+    playback: AnimationPlayback;
+    preset: ProceduralPreset;
+  } | null>(null);
+  const proceduralBones = useRef(
+    new Map<
+      ProceduralBone,
+      { base: THREE.Quaternion; node: THREE.Object3D }
+    >(),
+  );
+
+  const restoreProceduralPose = useCallback(() => {
+    for (const { base, node } of proceduralBones.current.values()) {
+      node.quaternion.copy(base);
+    }
+    procedural.current = null;
+  }, []);
 
   useEffect(() => {
     if (!vrm) return;
     const animationHistory = previousAnimation.current;
+    const boundProceduralBones = proceduralBones.current;
     const animationMixer = new THREE.AnimationMixer(vrm.scene);
+    boundProceduralBones.clear();
     const handleFinished = ({ action }: { action: THREE.AnimationAction }) => {
       const pending = pendingCompletion.current;
       if (
@@ -73,6 +102,11 @@ export function useVrmAnimation(vrm: VRM | null) {
       current.current = null;
       currentType.current = null;
       pendingCompletion.current = null;
+      for (const { base, node } of boundProceduralBones.values()) {
+        node.quaternion.copy(base);
+      }
+      procedural.current = null;
+      boundProceduralBones.clear();
       animationHistory.clear();
     };
   }, [vrm]);
@@ -96,6 +130,7 @@ export function useVrmAnimation(vrm: VRM | null) {
         animationUrls = [],
         onComplete,
         playback = 'loop',
+        proceduralPreset,
       }: PlayOptions = {},
     ) => {
       if (!vrm || !mixer.current) {
@@ -110,6 +145,21 @@ export function useVrmAnimation(vrm: VRM | null) {
           previousAnimation.current.get(type) ?? null,
         );
         if (!url) {
+          if (isProceduralPreset(proceduralPreset)) {
+            current.current?.fadeOut(
+              transitionSeconds(currentType.current, type),
+            );
+            current.current = null;
+            currentType.current = type;
+            procedural.current = {
+              elapsed: 0,
+              onComplete,
+              playback,
+              preset: proceduralPreset,
+            };
+            return;
+          }
+          restoreProceduralPose();
           const fadeSeconds = transitionSeconds(currentType.current, type);
           current.current?.fadeOut(fadeSeconds);
           current.current = null;
@@ -117,6 +167,7 @@ export function useVrmAnimation(vrm: VRM | null) {
           if (playback === 'once') onComplete?.();
           return;
         }
+        restoreProceduralPose();
         previousAnimation.current.set(type, url);
         const animation = await load(url);
         if (generation !== requestGeneration.current || !mixer.current) return;
@@ -143,9 +194,48 @@ export function useVrmAnimation(vrm: VRM | null) {
         }
       }
     },
-    [load, vrm],
+    [load, restoreProceduralPose, vrm],
   );
 
-  const update = useCallback((delta: number) => mixer.current?.update(delta), []);
+  const update = useCallback(
+    (delta: number) => {
+      mixer.current?.update(delta);
+      const active = procedural.current;
+      if (!active || !vrm) return;
+
+      active.elapsed += delta;
+      const duration = PROCEDURAL_DURATIONS[active.preset];
+      const sampleTime =
+        active.playback === 'loop'
+          ? active.elapsed % duration
+          : Math.min(active.elapsed, duration);
+      const pose = sampleProceduralPose(active.preset, sampleTime);
+      for (const [bone, rotation] of Object.entries(pose) as [
+        ProceduralBone,
+        readonly [number, number, number],
+      ][]) {
+        let binding = proceduralBones.current.get(bone);
+        if (!binding) {
+          const node = vrm.humanoid?.getNormalizedBoneNode(
+            bone as VRMHumanBoneName,
+          );
+          if (!node) continue;
+          binding = { base: node.quaternion.clone(), node };
+          proceduralBones.current.set(bone, binding);
+        }
+        const offset = new THREE.Quaternion().setFromEuler(
+          new THREE.Euler(rotation[0], rotation[1], rotation[2], 'XYZ'),
+        );
+        binding.node.quaternion.copy(binding.base).multiply(offset);
+      }
+
+      if (active.playback === 'once' && active.elapsed >= duration) {
+        const callback = active.onComplete;
+        restoreProceduralPose();
+        callback?.();
+      }
+    },
+    [restoreProceduralPose, vrm],
+  );
   return { play, update };
 }

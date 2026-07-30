@@ -50,6 +50,7 @@ interface PersonaAnimationSettings {
   removable: boolean;
   clips: PersonaAnimationClipSettings[];
   asset_urls: string[];
+  procedural_preset: string | null;
 }
 
 interface PersonaAnimationClipSettings {
@@ -97,6 +98,7 @@ type AvatarBridgeEvent =
       animation: PersonaAnimationType | 'CUSTOM';
       animationName?: string;
       animationUrls?: string[];
+      proceduralPreset?: string | null;
       source?: 'command';
       requestId?: number;
     }
@@ -132,8 +134,14 @@ interface Window {
     resetPackagedAnimations(): Promise<PersonaSettingsSnapshot>;
     deleteModel(modelId: string): Promise<PersonaSettingsSnapshot>;
     setDefaultModel(modelId: string): Promise<PersonaSettingsSnapshot>;
+    deployModel(modelId: string): Promise<PersonaSettingsSnapshot>;
     setCharacterSize(size: number): Promise<PersonaSettingsSnapshot>;
     getMcpStatus(): Promise<PersonaMcpStatus>;
+    connectCodexCli(): Promise<{
+      config_path: string;
+      server_url: string;
+      status: 'connected';
+    }>;
     setWindowTheme(theme: 'light' | 'dark'): void;
     subscribe(
       listener: (snapshot: PersonaSettingsSnapshot) => void,

@@ -8,6 +8,7 @@ import { Scene } from './components/Scene';
 import {
   animationUrlsForType,
   immediateVoiceAnimation,
+  proceduralPresetForType,
   type AnimationType,
 } from './animation-catalog';
 import {
@@ -55,6 +56,7 @@ export function App() {
             animation: event.animation,
             animationName: event.animationName,
             animationUrls: event.animationUrls,
+            proceduralPreset: event.proceduralPreset,
             requestId: event.requestId,
           });
         } else if (event.animation !== 'CUSTOM') {
@@ -108,6 +110,12 @@ export function App() {
   );
   const animationUrls =
     bodyOverride?.animationUrls ?? configuredAnimationUrls;
+  const configuredProceduralPreset = useMemo(
+    () => proceduralPresetForType(settings.animations, animation),
+    [animation, settings.animations],
+  );
+  const proceduralPreset =
+    bodyOverride?.proceduralPreset ?? configuredProceduralPreset;
   const overrideRequestId = bodyOverride?.requestId ?? null;
   const handleAnimationComplete = useCallback(() => {
     if (overrideRequestId == null) return;
@@ -127,6 +135,7 @@ export function App() {
         modelUrl={defaultModel.asset_url}
         onAnimationComplete={handleAnimationComplete}
         playback={bodyOverride ? 'once' : 'loop'}
+        proceduralPreset={proceduralPreset}
         speaking={speaking}
       />
     </main>

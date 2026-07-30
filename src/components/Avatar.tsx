@@ -15,6 +15,7 @@ interface AvatarProps {
   modelUrl: string;
   onAnimationComplete: () => void;
   playback: 'loop' | 'once';
+  proceduralPreset?: string | null;
   speaking: boolean;
   onReady?: (scene: THREE.Object3D) => void;
 }
@@ -27,6 +28,7 @@ function AvatarModel({
   modelUrl,
   onAnimationComplete,
   playback,
+  proceduralPreset,
   speaking,
   onReady,
 }: AvatarProps) {
@@ -40,6 +42,7 @@ function AvatarModel({
       animationUrls,
       onComplete: onAnimationComplete,
       playback,
+      proceduralPreset,
     });
   }, [
     animation,
@@ -48,6 +51,7 @@ function AvatarModel({
     onAnimationComplete,
     play,
     playback,
+    proceduralPreset,
   ]);
 
   useLayoutEffect(() => {

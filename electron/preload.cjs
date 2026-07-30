@@ -40,10 +40,14 @@ contextBridge.exposeInMainWorld("personaSettings", {
     ipcRenderer.invoke("persona:settings-delete-model", modelId),
   setDefaultModel: (modelId) =>
     ipcRenderer.invoke("persona:settings-set-default-model", modelId),
+  deployModel: (modelId) =>
+    ipcRenderer.invoke("persona:settings-deploy-model", modelId),
   setCharacterSize: (size) =>
     ipcRenderer.invoke("persona:settings-set-character-size", size),
   getMcpStatus: () =>
     ipcRenderer.invoke("persona:settings-get-mcp-status"),
+  connectCodexCli: () =>
+    ipcRenderer.invoke("persona:settings-connect-codex-cli"),
   setWindowTheme: (theme) =>
     ipcRenderer.send("persona:settings-set-window-theme", theme),
   subscribe: (listener) => {

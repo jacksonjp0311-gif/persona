@@ -24,6 +24,7 @@ interface SceneProps {
   modelUrl: string;
   onAnimationComplete: () => void;
   playback: 'loop' | 'once';
+  proceduralPreset?: string | null;
   speaking: boolean;
 }
 

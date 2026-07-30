@@ -15,6 +15,11 @@ test("MCP settings status describes the live local endpoint", () => {
       animations: [
         { animation_name: "idle", asset_urls: ["idle.vrma"] },
         { animation_name: "empty", asset_urls: [] },
+        {
+          animation_name: "quarterback-throw",
+          asset_urls: [],
+          procedural_preset: "quarterback-throw",
+        },
         { animation_name: "wave-hello", asset_urls: ["wave.vrma"] },
       ],
     },
@@ -28,7 +33,11 @@ test("MCP settings status describes the live local endpoint", () => {
     "codex mcp add persona --url http://127.0.0.1:49152/mcp",
   );
   assert.deepEqual(status.tools, MCP_TOOL_NAMES);
-  assert.deepEqual(status.playable_actions, ["idle", "wave-hello"]);
+  assert.deepEqual(status.playable_actions, [
+    "idle",
+    "quarterback-throw",
+    "wave-hello",
+  ]);
   assert.equal(status.local_only, true);
   assert.match(status.checked_at, /^\d{4}-\d{2}-\d{2}T/);
 });

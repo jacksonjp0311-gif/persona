@@ -1331,6 +1331,52 @@ button {
   background: var(--fill-sunken);
 }
 
+.procedural-preview-button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin-bottom: 12px;
+  padding: 9px 11px;
+  border: 1px solid var(--accent-border);
+  border-radius: var(--r-md);
+  color: var(--accent-text);
+  text-align: left;
+  background: var(--accent-soft);
+}
+
+.procedural-preview-button:hover,
+.procedural-preview-button.playing {
+  background: var(--accent-soft-hover);
+  box-shadow: inset 0 0 0 1px var(--accent-border);
+}
+
+.procedural-preview-button > span:first-child {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: var(--r-sm);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  font-size: 11px;
+}
+
+.procedural-preview-button strong,
+.procedural-preview-button small {
+  display: block;
+}
+
+.procedural-preview-button strong {
+  font-size: var(--fs-sm);
+}
+
+.procedural-preview-button small {
+  margin-top: 2px;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+}
+
 .animation-clips-heading {
   display: flex;
   align-items: center;
@@ -2056,6 +2102,68 @@ button {
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
+}
+
+.connect-cli-button {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin-top: 8px;
+  padding: 9px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  color: var(--text-primary);
+  text-align: left;
+  background: var(--bg-raised);
+  transition:
+    border-color var(--dur) var(--ease),
+    background var(--dur) var(--ease),
+    transform var(--dur) var(--ease);
+}
+
+.connect-cli-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+}
+
+.connect-cli-button.connected {
+  border-color: var(--success-border);
+  background: var(--success-soft);
+}
+
+.connect-cli-icon {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--accent-text);
+  background: var(--fill-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+}
+
+.connect-cli-button strong,
+.connect-cli-button small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.connect-cli-button strong {
+  font-size: var(--fs-sm);
+}
+
+.connect-cli-button small {
+  margin-top: 2px;
+  color: var(--text-tertiary);
+  font-size: var(--fs-xs);
 }
 
 .preview-now-playing {
