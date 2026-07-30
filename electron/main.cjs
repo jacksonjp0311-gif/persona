@@ -91,7 +91,44 @@ let overlayDragState = null;
 let ambientDanceTimer = null;
 let ambientDancePlayed = false;
 let previousAmbientDanceId = null;
+let alwaysOnTopAssertTimer = null;
 const pendingRendererEvents = new Map();
+
+/** Highest practical always-on-top level so Persona stays above normal apps. */
+const OVERLAY_ALWAYS_ON_TOP_LEVEL = "screen-saver";
+
+function pinOverlayAboveWindows(window) {
+  if (!window || window.isDestroyed()) return;
+  try {
+    window.setAlwaysOnTop(true, OVERLAY_ALWAYS_ON_TOP_LEVEL);
+  } catch {
+    window.setAlwaysOnTop(true, "floating");
+  }
+  window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  if (typeof window.moveTop === "function") {
+    window.moveTop();
+  }
+}
+
+function startAlwaysOnTopAssert() {
+  clearInterval(alwaysOnTopAssertTimer);
+  alwaysOnTopAssertTimer = setInterval(() => {
+    if (
+      !avatarWindow ||
+      avatarWindow.isDestroyed() ||
+      !avatarWindow.isVisible()
+    ) {
+      return;
+    }
+    pinOverlayAboveWindows(avatarWindow);
+  }, 1500);
+  alwaysOnTopAssertTimer.unref?.();
+}
+
+function stopAlwaysOnTopAssert() {
+  clearInterval(alwaysOnTopAssertTimer);
+  alwaysOnTopAssertTimer = null;
+}
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -235,6 +272,8 @@ function showOverlay({ focus = false } = {}) {
   } else if (!window.isVisible()) {
     window.showInactive();
   }
+  pinOverlayAboveWindows(window);
+  startAlwaysOnTopAssert();
   scheduleHyprlandWindowConfiguration();
   scheduleAmbientDance();
 }
@@ -242,6 +281,7 @@ function showOverlay({ focus = false } = {}) {
 async function hideOverlay() {
   debugLog("hide overlay");
   clearAmbientDanceTimer();
+  stopAlwaysOnTopAssert();
   const targetWindow = avatarWindow;
   if (!targetWindow || targetWindow.isDestroyed()) return;
   const placement = await getHyprlandWindowPlacement(process.pid);
@@ -254,6 +294,7 @@ async function hideOverlay() {
 
 function destroyOverlayForSetup() {
   clearAmbientDanceTimer();
+  stopAlwaysOnTopAssert();
   clearTimeout(hyprlandConfigurationTimer);
   hyprlandConfigurationGeneration += 1;
   hyprlandConfigurationTimer = null;
@@ -323,6 +364,7 @@ function createWindow() {
     autoHideMenuBar: true,
     alwaysOnTop: true,
     skipTaskbar: true,
+    focusable: true,
     title: "Persona",
     icon: applicationIconPath(),
     webPreferences: {
@@ -334,24 +376,34 @@ function createWindow() {
   });
   avatarWindow = window;
 
-  window.setAlwaysOnTop(true, "floating");
-  window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  pinOverlayAboveWindows(window);
   window.setOpacity(1);
+  startAlwaysOnTopAssert();
   window.once("ready-to-show", () => {
     if (window.isDestroyed()) return;
     positionWindow(window);
+    pinOverlayAboveWindows(window);
     scheduleHyprlandWindowConfiguration();
   });
   window.on("show", () => {
     if (window.isDestroyed()) return;
-    window.setAlwaysOnTop(true, "floating");
-    window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+    pinOverlayAboveWindows(window);
+    startAlwaysOnTopAssert();
     window.setOpacity(1);
     scheduleHyprlandWindowConfiguration({
       force: true,
       position: hyprlandLastPosition,
       reposition: !hyprlandConfigured || hyprlandLastPosition != null,
     });
+  });
+  window.on("blur", () => {
+    // Re-pin after another app steals focus so Persona stays painted on top.
+    if (window.isDestroyed() || !window.isVisible()) return;
+    pinOverlayAboveWindows(window);
+  });
+  window.on("focus", () => {
+    if (window.isDestroyed()) return;
+    pinOverlayAboveWindows(window);
   });
   window.on("close", (event) => {
     if (isQuitting) return;
@@ -366,6 +418,7 @@ function createWindow() {
     hyprlandConfiguring = false;
     rendererLoadHookAttached = false;
     clearAmbientDanceTimer();
+    stopAlwaysOnTopAssert();
     avatarWindow = null;
   });
 

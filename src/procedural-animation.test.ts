@@ -11,7 +11,7 @@ import {
 
 describe('procedural animation library', () => {
   it('ships a large, uniquely named action set', () => {
-    expect(PROCEDURAL_PRESETS).toHaveLength(40);
+    expect(PROCEDURAL_PRESETS).toHaveLength(54);
     expect(new Set(PROCEDURAL_PRESETS).size).toBe(PROCEDURAL_PRESETS.length);
   });
 

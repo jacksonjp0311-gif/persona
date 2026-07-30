@@ -385,6 +385,228 @@ button {
   background: rgba(185, 35, 59, 0.86);
 }
 
+/* --- Fortnite-style dance wheel (hidden until hover) -------------------- */
+
+.dance-selector {
+  position: absolute;
+  z-index: 20;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 46%;
+  pointer-events: none;
+}
+
+.dance-selector-hotzone {
+  position: absolute;
+  right: 12%;
+  bottom: 0;
+  left: 12%;
+  height: 28%;
+  pointer-events: auto;
+}
+
+.dance-selector-panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: min(100%, 360px);
+  padding-bottom: 10px;
+  opacity: 0;
+  transform: translateY(18px) scale(0.92);
+  transition:
+    opacity 180ms var(--ease),
+    transform 180ms var(--ease);
+  pointer-events: none;
+}
+
+.dance-selector.is-open .dance-selector-panel,
+.dance-selector:focus-within .dance-selector-panel,
+.app:hover .dance-selector-panel {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+.dance-wheel {
+  position: relative;
+  width: 250px;
+  height: 250px;
+  isolation: isolate;
+}
+
+.dance-wheel-ring {
+  position: absolute;
+  inset: 28px;
+  z-index: -1;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 50%;
+  background:
+    radial-gradient(
+      circle at center,
+      rgba(56, 189, 248, 0.12) 0 28%,
+      transparent 30% 52%,
+      rgba(168, 85, 247, 0.1) 54% 68%,
+      transparent 70%
+    ),
+    conic-gradient(
+      from 0deg,
+      rgba(56, 189, 248, 0.35),
+      rgba(168, 85, 247, 0.32),
+      rgba(251, 113, 133, 0.28),
+      rgba(56, 189, 248, 0.35)
+    );
+  box-shadow:
+    inset 0 0 0 10px rgba(8, 10, 16, 0.72),
+    0 0 36px rgba(56, 189, 248, 0.16);
+  backdrop-filter: blur(10px);
+}
+
+.dance-wheel-item {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 58px;
+  min-height: 54px;
+  padding: 4px 3px 5px;
+  transform: translate(-50%, -50%) rotate(var(--dance-angle)) translateY(-96px)
+    rotate(calc(-1 * var(--dance-angle)));
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 14px;
+  color: rgba(255, 255, 255, 0.86);
+  background: rgba(12, 14, 20, 0.78);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(10px);
+  transition:
+    border-color 130ms var(--ease),
+    background 130ms var(--ease),
+    box-shadow 130ms var(--ease),
+    transform 130ms var(--ease);
+}
+
+.dance-wheel-item:hover,
+.dance-wheel-item.focused {
+  border-color: rgba(56, 189, 248, 0.55);
+  background: rgba(24, 32, 48, 0.9);
+  box-shadow:
+    0 10px 22px rgba(0, 0, 0, 0.32),
+    0 0 0 2px rgba(56, 189, 248, 0.18);
+}
+
+.dance-wheel-item.selected {
+  border-color: rgba(168, 85, 247, 0.75);
+  background: linear-gradient(
+    160deg,
+    rgba(56, 189, 248, 0.28),
+    rgba(168, 85, 247, 0.34)
+  );
+  box-shadow:
+    0 10px 24px rgba(0, 0, 0, 0.34),
+    0 0 18px rgba(168, 85, 247, 0.35);
+}
+
+.dance-wheel-glyph {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  margin-bottom: 2px;
+  place-items: center;
+  border-radius: 8px;
+  color: white;
+  background: linear-gradient(135deg, #38bdf8, #a855f7 70%, #fb7185);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+}
+
+.dance-wheel-label {
+  display: -webkit-box;
+  max-width: 52px;
+  overflow: hidden;
+  font-size: 8px;
+  font-weight: 650;
+  line-height: 1.1;
+  text-align: center;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.dance-wheel-core {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 88px;
+  height: 88px;
+  padding: 8px;
+  transform: translate(-50%, -50%);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 50%;
+  color: white;
+  background:
+    radial-gradient(
+      circle at 35% 30%,
+      rgba(56, 189, 248, 0.28),
+      transparent 55%
+    ),
+    rgba(10, 12, 18, 0.88);
+  box-shadow:
+    0 10px 28px rgba(0, 0, 0, 0.35),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  text-align: center;
+  backdrop-filter: blur(12px);
+}
+
+.dance-wheel-core.selected {
+  border-color: rgba(56, 189, 248, 0.65);
+  box-shadow:
+    0 0 24px rgba(56, 189, 248, 0.28),
+    0 10px 28px rgba(0, 0, 0, 0.35);
+}
+
+.dance-wheel-core strong {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.dance-wheel-core small {
+  display: block;
+  max-width: 72px;
+  overflow: hidden;
+  margin-top: 2px;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 9px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dance-selector-hint {
+  margin: 8px 0 0;
+  padding: 3px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--r-full);
+  color: rgba(255, 255, 255, 0.72);
+  background: rgba(10, 12, 18, 0.55);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  backdrop-filter: blur(8px);
+}
+
 /* 4. Settings shell ======================================================= */
 
 .settings-app {

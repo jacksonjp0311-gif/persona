@@ -102,7 +102,7 @@ type AvatarBridgeEvent =
       animationUrls?: string[];
       mirror?: boolean;
       proceduralPreset?: string | null;
-      source?: 'ambient' | 'command';
+      source?: 'ambient' | 'command' | 'user';
       requestId?: number;
     }
   | { type: 'listener-status'; status: AudioListenerStatus }

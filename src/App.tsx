@@ -2,10 +2,15 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import { Scene } from './components/Scene';
 import { OverlayChrome } from './components/OverlayChrome';
+import {
+  DanceSelector,
+  type DanceOption,
+} from './components/DanceSelector';
 import {
   animationUrlsForType,
   immediateVoiceAnimation,
@@ -32,6 +37,12 @@ const INITIAL_STATE: VoiceState = {
 
 const BODY_IDLE_DELAY_MS = 650;
 
+function prettyDanceLabel(name: string): string {
+  return name
+    .replace(/[-_]+/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
 export function App() {
   const [voice, setVoice] = useState<VoiceState>(INITIAL_STATE);
   const [audioLevel, setAudioLevel] = useState(0);
@@ -40,6 +51,13 @@ export function App() {
     useState<BodyAnimationOverride | null>(null);
   const [settings, setSettings] =
     useState<PersonaSettingsSnapshot>(SETTINGS_FALLBACK);
+  const [lockedDanceId, setLockedDanceId] = useState<string | null>(null);
+  const userDanceRequestId = useRef(0);
+  const lockedDanceIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    lockedDanceIdRef.current = lockedDanceId;
+  }, [lockedDanceId]);
 
   useEffect(() => {
     const bridge = window.personaBridge;
@@ -54,6 +72,11 @@ export function App() {
         setAudioLevel(event.level);
       } else if (event.type === 'animation') {
         if (event.requestId != null) {
+          const source = event.source ?? 'command';
+          // User-locked dances win over ambient rotation.
+          if (source === 'ambient' && lockedDanceIdRef.current != null) {
+            return;
+          }
           setBodyOverride({
             animation: event.animation,
             animationName: event.animationName,
@@ -61,7 +84,7 @@ export function App() {
             mirror: event.mirror,
             proceduralPreset: event.proceduralPreset,
             requestId: event.requestId,
-            source: event.source ?? 'command',
+            source,
           });
         } else if (event.animation !== 'CUSTOM') {
           setVoiceAnimation(event.animation);
@@ -86,17 +109,70 @@ export function App() {
     !voice.outputMuted;
 
   // Keep the desktop character dancing whenever it is not mid-speech.
-  // Listening/idle must not freeze the avatar into a rest pose.
   const ambientDanceAllowed = !speaking;
 
+  const danceOptions = useMemo<DanceOption[]>(
+    () =>
+      settings.animations
+        .filter(
+          (animation) =>
+            animation.animation_type === 'DANCE' &&
+            (animation.asset_urls.length > 0 ||
+              animation.procedural_preset != null),
+        )
+        .map((animation) => ({
+          id: animation.id,
+          label: prettyDanceLabel(animation.animation_name),
+          animationName: animation.animation_name,
+          animationUrls: animation.asset_urls,
+          proceduralPreset: animation.procedural_preset,
+        })),
+    [settings.animations],
+  );
+
+  const applyUserDance = useCallback((dance: DanceOption) => {
+    userDanceRequestId.current += 1;
+    setLockedDanceId(dance.id);
+    setBodyOverride({
+      animation: 'DANCE',
+      animationName: dance.animationName,
+      animationUrls: dance.animationUrls,
+      mirror: false,
+      proceduralPreset: dance.proceduralPreset,
+      requestId: userDanceRequestId.current,
+      source: 'user',
+    });
+  }, []);
+
+  const unlockAutoDance = useCallback(() => {
+    setLockedDanceId(null);
+    // Drop the lock so ambient rotation can take over again.
+    setBodyOverride((current) =>
+      current?.source === 'user' ? null : current,
+    );
+  }, []);
+
   useEffect(() => {
-    if (
-      bodyOverride?.source === 'ambient' &&
-      !ambientDanceAllowed
-    ) {
-      setBodyOverride(null);
+    if (!ambientDanceAllowed) {
+      if (
+        bodyOverride?.source === 'ambient' ||
+        bodyOverride?.source === 'user'
+      ) {
+        setBodyOverride(null);
+      }
+      return;
     }
-  }, [ambientDanceAllowed, bodyOverride]);
+    if (lockedDanceId == null) return;
+    if (bodyOverride?.source === 'user' && bodyOverride.animationName) return;
+    const dance = danceOptions.find((option) => option.id === lockedDanceId);
+    if (dance) applyUserDance(dance);
+  }, [
+    ambientDanceAllowed,
+    applyUserDance,
+    bodyOverride,
+    danceOptions,
+    lockedDanceId,
+  ]);
 
   useEffect(() => {
     const immediateAnimation = immediateVoiceAnimation(voice);
@@ -137,22 +213,46 @@ export function App() {
     () => proceduralPresetForType(settings.animations, animation),
     [animation, settings.animations],
   );
+  // Prefer the active dance override. Avoid forcing calm-listen over dance
+  // while the voice runtime is merely listening.
   const proceduralPreset =
     bodyOverride?.proceduralPreset ??
-    (voice.phase === 'active' && voice.activity === 'listening'
-      ? 'calm-listen'
-      : configuredProceduralPreset);
+    (animation === 'DANCE'
+      ? configuredProceduralPreset
+      : voice.phase === 'active' &&
+          voice.activity === 'listening' &&
+          bodyOverride == null
+        ? 'calm-listen'
+        : configuredProceduralPreset);
   const overrideRequestId = bodyOverride?.requestId ?? null;
   const handleAnimationComplete = useCallback(() => {
     if (overrideRequestId == null) return;
+    // User-locked and ambient dances loop; never clear them on complete.
+    if (
+      bodyOverride?.source === 'user' ||
+      bodyOverride?.source === 'ambient'
+    ) {
+      return;
+    }
     setBodyOverride((current) =>
       finishBodyAnimationOverride(current, overrideRequestId),
     );
-  }, [overrideRequestId]);
+  }, [bodyOverride?.source, overrideRequestId]);
+
+  const loopingOverride =
+    bodyOverride == null ||
+    bodyOverride.source === 'ambient' ||
+    bodyOverride.source === 'user';
 
   return deployedCharacters.length > 0 ? (
     <main className="app">
       <OverlayChrome />
+      <DanceSelector
+        dances={danceOptions}
+        lockedDanceId={lockedDanceId}
+        onLockDance={applyUserDance}
+        onUnlockAuto={unlockAutoDance}
+      />
       <Scene
         animation={animation}
         animationRequest={animationRequest}
@@ -162,11 +262,7 @@ export function App() {
         mirror={bodyOverride?.mirror ?? false}
         characters={deployedCharacters}
         onAnimationComplete={handleAnimationComplete}
-        playback={
-          bodyOverride == null || bodyOverride.source === 'ambient'
-            ? 'loop'
-            : 'once'
-        }
+        playback={loopingOverride ? 'loop' : 'once'}
         proceduralPreset={proceduralPreset}
         speaking={speaking}
       />

@@ -553,6 +553,132 @@
       ]
     },
     {
+      "id": "dance-justice-bounce",
+      "animation_name": "justice-bounce",
+      "animation_description": "Deep knee bounce with big overhead arm swings — a viral party celebration groove.",
+      "animation_trigger_scenario": "Use for hype wins, drop moments, and crowd energy.",
+      "animation_type": "DANCE",
+      "procedural_preset": "justice-bounce",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-floss-swing",
+      "animation_name": "floss-swing",
+      "animation_description": "Arms whip front-to-back while hips counter-swing in a tight floss groove.",
+      "animation_trigger_scenario": "Use for meme energy, flexes, and playful taunts.",
+      "animation_type": "DANCE",
+      "procedural_preset": "floss-swing",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-electro-shuffle",
+      "animation_name": "electro-shuffle",
+      "animation_description": "Sharp side shuffles with robotic arm pops on the beat.",
+      "animation_trigger_scenario": "Use for electronic music and snappy transitions.",
+      "animation_type": "DANCE",
+      "procedural_preset": "electro-shuffle",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-take-the-l",
+      "animation_name": "take-the-l",
+      "animation_description": "One hand forms an L near the forehead while the body bounces.",
+      "animation_trigger_scenario": "Use for cheeky losses, roasting, or comic relief.",
+      "animation_type": "DANCE",
+      "procedural_preset": "take-the-l",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-hammer-fresh",
+      "animation_name": "hammer-fresh",
+      "animation_description": "Wide low stance with swinging elbows in a classic baggy-pants groove.",
+      "animation_trigger_scenario": "Use for old-school hip-hop and confident swagger.",
+      "animation_type": "DANCE",
+      "procedural_preset": "hammer-fresh",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-renegade-hit",
+      "animation_name": "renegade-hit",
+      "animation_description": "Alternating arm hits and sharp steps in a TikTok-style hit combo.",
+      "animation_trigger_scenario": "Use for trend reactions and high-energy social moments.",
+      "animation_type": "DANCE",
+      "procedural_preset": "renegade-hit",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-say-so-bounce",
+      "animation_name": "say-so-bounce",
+      "animation_description": "Soft hip sway and hand flourishes over a smooth bounce.",
+      "animation_trigger_scenario": "Use for chill vibes, flirtatious energy, or laid-back wins.",
+      "animation_type": "DANCE",
+      "procedural_preset": "say-so-bounce",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-pony-gallop",
+      "animation_name": "pony-gallop",
+      "animation_description": "Galloping knees and alternating arm pulls like riding a pony.",
+      "animation_trigger_scenario": "Use for silly celebrations and party breaks.",
+      "animation_type": "DANCE",
+      "procedural_preset": "pony-gallop",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-whip-nae",
+      "animation_name": "whip-nae",
+      "animation_description": "A whip arm slash that flips into a bouncy nae-nae groove.",
+      "animation_trigger_scenario": "Use for comedic turns and 2010s party energy.",
+      "animation_type": "DANCE",
+      "procedural_preset": "whip-nae",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-carlton-bounce",
+      "animation_name": "carlton-bounce",
+      "animation_description": "Arms high with a cheerful vertical bounce and soft hand flicks.",
+      "animation_trigger_scenario": "Use for wholesome wins and sitcom energy.",
+      "animation_type": "DANCE",
+      "procedural_preset": "carlton-bounce",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-macarena-wave",
+      "animation_name": "macarena-wave",
+      "animation_description": "Sequential arm gestures that build into a hip-sway chorus.",
+      "animation_trigger_scenario": "Use for group fun, nostalgia, and instructional moments.",
+      "animation_type": "DANCE",
+      "procedural_preset": "macarena-wave",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-thriller-walk",
+      "animation_name": "thriller-walk",
+      "animation_description": "Stiff-armed horror walk with hunched shoulders and slow steps.",
+      "animation_trigger_scenario": "Use for spooky themes, suspense, or dramatic flair.",
+      "animation_type": "DANCE",
+      "procedural_preset": "thriller-walk",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-toosie-slide",
+      "animation_name": "toosie-slide",
+      "animation_description": "Side slide steps with a pointing arm accent on the beat.",
+      "animation_trigger_scenario": "Use for modern pop reactions and casual flexes.",
+      "animation_type": "DANCE",
+      "procedural_preset": "toosie-slide",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-scenario-groove",
+      "animation_name": "scenario-groove",
+      "animation_description": "Sharp torso hits and wide arm accents in a 90s house groove.",
+      "animation_trigger_scenario": "Use for classic club energy and bold entrances.",
+      "animation_type": "DANCE",
+      "procedural_preset": "scenario-groove",
+      "asset_paths": []
+    },
+    {
       "id": "talk-open-hand-explain",
       "animation_name": "open-hand-explain",
       "animation_description": "Open palms and measured arm movement support an explanation.",

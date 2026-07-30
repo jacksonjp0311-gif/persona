@@ -10,7 +10,7 @@ export interface BodyAnimationOverride {
   mirror?: boolean;
   proceduralPreset?: string | null;
   requestId: number;
-  source?: 'ambient' | 'command';
+  source?: 'ambient' | 'command' | 'user';
 }
 
 export function resolveBodyAnimation(
