@@ -1,7 +1,188 @@
 {
   "schema_version": 1,
-  "default_model_id": null,
-  "models": [],
+  "default_model_id": "polydancer",
+  "models": [
+    {
+      "id": "polydancer",
+      "model_name": "Polydancer",
+      "asset_path": "models/polydancer.vrm"
+    },
+    {
+      "id": "rose",
+      "model_name": "Rose",
+      "asset_path": "models/rose.vrm"
+    },
+    {
+      "id": "astronaut",
+      "model_name": "Astronaut",
+      "asset_path": "models/astronaut.vrm"
+    },
+    {
+      "id": "witch",
+      "model_name": "Witch",
+      "asset_path": "models/witch.vrm"
+    },
+    {
+      "id": "polybot",
+      "model_name": "Polybot",
+      "asset_path": "models/polybot.vrm"
+    },
+    {
+      "id": "pyre-sorcerer",
+      "model_name": "Pyre Sorcerer",
+      "asset_path": "models/pyre-sorcerer.vrm"
+    },
+    {
+      "id": "moon-girl",
+      "model_name": "Moon Girl",
+      "asset_path": "models/moon-girl.vrm"
+    },
+    {
+      "id": "shark-person",
+      "model_name": "Shark Person",
+      "asset_path": "models/shark-person.vrm"
+    },
+    {
+      "id": "cool-tiger",
+      "model_name": "Cool Tiger",
+      "asset_path": "models/cool-tiger.vrm"
+    },
+    {
+      "id": "bao-samurai",
+      "model_name": "Bao Samurai",
+      "asset_path": "models/bao-samurai.vrm"
+    },
+    {
+      "id": "mushroom-fairy",
+      "model_name": "Mushroom Fairy",
+      "asset_path": "models/mushroom-fairy.vrm"
+    },
+    {
+      "id": "strawberry-princess",
+      "model_name": "Strawberry Princess",
+      "asset_path": "models/strawberry-princess.vrm"
+    },
+    {
+      "id": "devil",
+      "model_name": "Devil",
+      "asset_path": "models/devil.vrm"
+    },
+    {
+      "id": "rabbit",
+      "model_name": "Rabbit",
+      "asset_path": "models/rabbit.vrm"
+    },
+    {
+      "id": "dino-kid",
+      "model_name": "Dino Kid",
+      "asset_path": "models/dino-kid.vrm"
+    },
+    {
+      "id": "zombie",
+      "model_name": "Zombie",
+      "asset_path": "models/zombie.vrm"
+    },
+    {
+      "id": "astrodisco",
+      "model_name": "Astrodisco",
+      "asset_path": "models/astrodisco.vrm"
+    },
+    {
+      "id": "ghost",
+      "model_name": "Ghost",
+      "asset_path": "models/ghost.vrm"
+    },
+    {
+      "id": "cool-alien",
+      "model_name": "Cool Alien",
+      "asset_path": "models/cool-alien.vrm"
+    },
+    {
+      "id": "froggy",
+      "model_name": "Froggy",
+      "asset_path": "models/froggy.vrm"
+    },
+    {
+      "id": "unicorn-person",
+      "model_name": "Unicorn Person",
+      "asset_path": "models/unicorn-person.vrm"
+    },
+    {
+      "id": "cosmic-person",
+      "model_name": "Cosmic Person",
+      "asset_path": "models/cosmic-person.vrm"
+    },
+    {
+      "id": "chill-penguin",
+      "model_name": "Chill Penguin",
+      "asset_path": "models/chill-penguin.vrm"
+    },
+    {
+      "id": "tasty-sandwich",
+      "model_name": "Tasty Sandwich",
+      "asset_path": "models/tasty-sandwich.vrm"
+    },
+    {
+      "id": "cool-turtle",
+      "model_name": "Cool Turtle",
+      "asset_path": "models/cool-turtle.vrm"
+    },
+    {
+      "id": "alien-skeleton",
+      "model_name": "Alien Skeleton",
+      "asset_path": "models/alien-skeleton.vrm"
+    },
+    {
+      "id": "sunflower-person",
+      "model_name": "Sunflower Person",
+      "asset_path": "models/sunflower-person.vrm"
+    },
+    {
+      "id": "falcon-dude",
+      "model_name": "Falcon Dude",
+      "asset_path": "models/falcon-dude.vrm"
+    },
+    {
+      "id": "weird-cat",
+      "model_name": "Weird Cat",
+      "asset_path": "models/weird-cat.vrm"
+    },
+    {
+      "id": "bot-bunny",
+      "model_name": "Bot Bunny",
+      "asset_path": "models/bot-bunny.vrm"
+    },
+    {
+      "id": "good-knight",
+      "model_name": "Good Knight",
+      "asset_path": "models/good-knight.vrm"
+    },
+    {
+      "id": "lady-koi",
+      "model_name": "Lady Koi",
+      "asset_path": "models/lady-koi.vrm"
+    },
+    {
+      "id": "dream-fighter",
+      "model_name": "Dream Fighter",
+      "asset_path": "models/dream-fighter.vrm"
+    },
+    {
+      "id": "lil-shark",
+      "model_name": "Lil Shark",
+      "asset_path": "models/lil-shark.vrm"
+    },
+    {
+      "id": "cool-bee",
+      "model_name": "Cool Bee",
+      "asset_path": "models/cool-bee.vrm"
+    },
+    {
+      "id": "ghost-pumpking",
+      "model_name": "Ghost Pumpking",
+      "asset_path": "models/ghost-pumpking.vrm"
+    }
+  ],
   "animations": [
     {
       "id": "system-idle",

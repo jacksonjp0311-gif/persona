@@ -223,6 +223,16 @@ function rendererUrl(view = null) {
   return url.href;
 }
 
+function applicationIconPath() {
+  return path.join(
+    __dirname,
+    "..",
+    app.isPackaged ? "dist" : "public",
+    "assets",
+    "persona-icon.png",
+  );
+}
+
 function secureRendererWindow(window, allowedRendererUrl) {
   window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
   window.webContents.on("will-navigate", (event, targetUrl) => {
@@ -250,6 +260,7 @@ function createWindow() {
     alwaysOnTop: true,
     skipTaskbar: true,
     title: "Persona",
+    icon: applicationIconPath(),
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
       contextIsolation: true,
@@ -313,6 +324,7 @@ function createSettingsWindow() {
     minHeight: 640,
     show: false,
     title: "Persona Settings",
+    icon: applicationIconPath(),
     // Best guess until the renderer reports the theme it actually resolved,
     // which it does before the window is shown on ready-to-show.
     backgroundColor: settingsWindowBackground(
@@ -596,14 +608,9 @@ function refreshTrayMenu() {
 }
 
 function createTray() {
-  const iconPath = path.join(
-    __dirname,
-    "..",
-    app.isPackaged ? "dist" : "public",
-    "assets",
-    "avatar.png",
-  );
-  const icon = nativeImage.createFromPath(iconPath).resize({ width: 20, height: 20 });
+  const icon = nativeImage
+    .createFromPath(applicationIconPath())
+    .resize({ width: 20, height: 20 });
   tray = new Tray(icon);
   tray.setToolTip("Persona");
   refreshTrayMenu();

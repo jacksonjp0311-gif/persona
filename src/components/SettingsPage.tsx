@@ -4,6 +4,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type ReactNode,
 } from 'react';
 import { Scene } from './Scene';
@@ -127,6 +128,20 @@ function errorMessage(error: unknown): string {
   return message.replace(/^Error invoking remote method '[^']+': Error: /, '');
 }
 
+function modelInitials(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (words.length > 1) {
+    return words
+      .slice(0, 2)
+      .map((word) => word[0])
+      .join('')
+      .toUpperCase();
+  }
+  return name.slice(0, 2).toUpperCase();
+}
+
+const WHEEL_PAGE_SIZE = 12;
+
 export function SettingsPage() {
   const bridge = window.personaSettings;
   const { chooseTheme, preference: themePreference } = useThemePreference();
@@ -137,6 +152,7 @@ export function SettingsPage() {
   const [selectedModelId, setSelectedModelId] = useState(
     SETTINGS_FALLBACK.default_model_id,
   );
+  const [wheelPage, setWheelPage] = useState(0);
   const [previewAnimation, setPreviewAnimation] =
     useState<PersonaAnimationSettings | null>(null);
   const [previewClipId, setPreviewClipId] = useState<string | null>(null);
@@ -219,6 +235,25 @@ export function SettingsPage() {
     settings.models.find((model) => model.id === selectedModelId) ??
     settings.models.find((model) => model.id === settings.default_model_id) ??
     settings.models[0];
+  const wheelPageCount = Math.max(
+    1,
+    Math.ceil(settings.models.length / WHEEL_PAGE_SIZE),
+  );
+  const wheelModels = settings.models.slice(
+    wheelPage * WHEEL_PAGE_SIZE,
+    (wheelPage + 1) * WHEEL_PAGE_SIZE,
+  );
+  const activeModelIndex = settings.models.findIndex(
+    (model) => model.id === settings.default_model_id,
+  );
+
+  useEffect(() => {
+    if (activeModelIndex >= 0) {
+      setWheelPage(Math.floor(activeModelIndex / WHEEL_PAGE_SIZE));
+    } else {
+      setWheelPage((page) => Math.min(page, wheelPageCount - 1));
+    }
+  }, [activeModelIndex, wheelPageCount]);
 
   const customModelCount = settings.models.filter(
     (model) => model.origin === 'user',
@@ -553,7 +588,9 @@ export function SettingsPage() {
       ? mcpStatus
         ? `${mcpStatus.tools.length} tools · ${mcpStatus.playable_actions.length} playable actions`
         : 'Local agent connection'
-      : `${customModelCount} custom models · ${customAnimationCount} custom actions`;
+      : section === 'models'
+        ? `${settings.models.length} characters · ${customModelCount} custom`
+        : `${customModelCount} custom models · ${customAnimationCount} custom actions`;
   const mcpHealth = mcpStatus?.health ?? (mcpLoading ? 'starting' : 'unavailable');
   const mcpServerUrl =
     mcpStatus?.server_url ?? 'http://127.0.0.1:47831/mcp';
@@ -569,7 +606,7 @@ export function SettingsPage() {
     >
       <aside className="settings-sidebar">
         <div className="settings-brand">
-          <img src="./assets/avatar.png" alt="" />
+          <img src="./assets/persona-icon.png" alt="" />
           <div className="settings-brand-copy">
             <strong>Persona</strong>
             <span>Settings</span>
@@ -636,6 +673,106 @@ export function SettingsPage() {
         <div className="settings-scroll">
           {section === 'models' && (
             <>
+              <section className="settings-panel character-wheel-panel">
+                <div className="panel-heading">
+                  <div>
+                    <h2>Character wheel</h2>
+                    <p>Choose a character to make it active immediately.</p>
+                  </div>
+                  <div className="wheel-toolbar">
+                    <button
+                      aria-label="Previous character wheel"
+                      disabled={wheelPageCount <= 1}
+                      onClick={() =>
+                        setWheelPage(
+                          (page) =>
+                            (page - 1 + wheelPageCount) % wheelPageCount,
+                        )
+                      }
+                      type="button"
+                    >
+                      ‹
+                    </button>
+                    <span className="wheel-count">
+                      {settings.models.length} characters · {wheelPage + 1}/
+                      {wheelPageCount}
+                    </span>
+                    <button
+                      aria-label="Next character wheel"
+                      disabled={wheelPageCount <= 1}
+                      onClick={() =>
+                        setWheelPage(
+                          (page) => (page + 1) % wheelPageCount,
+                        )
+                      }
+                      type="button"
+                    >
+                      ›
+                    </button>
+                  </div>
+                </div>
+                {settings.models.length === 0 ? (
+                  <div className="empty-library">
+                    <strong>Your wheel is empty</strong>
+                    <p>Add a VRM model below to create your first character.</p>
+                  </div>
+                ) : (
+                  <div
+                    aria-label="Character selection wheel"
+                    className="model-wheel"
+                    role="group"
+                  >
+                    <div className="model-wheel-rings" aria-hidden="true" />
+                    {wheelModels.map((model, index) => {
+                      const angle = (index / wheelModels.length) * 360;
+                      const isActive =
+                        model.id === settings.default_model_id;
+                      const isSelected = model.id === selectedModel?.id;
+                      return (
+                        <button
+                          aria-label={`Choose ${model.model_name}`}
+                          aria-pressed={isActive}
+                          className={`model-wheel-item ${
+                            isActive ? 'active' : ''
+                          } ${isSelected ? 'selected' : ''}`}
+                          disabled={busy || !bridge}
+                          key={model.id}
+                          onClick={() => {
+                            setSelectedModelId(model.id);
+                            if (!isActive) {
+                              void setDefaultModel(model.id);
+                            }
+                          }}
+                          style={
+                            {
+                              '--wheel-transform': `translate(-50%, -50%) rotate(${angle}deg) translateY(-154px) rotate(${-angle}deg)`,
+                            } as CSSProperties
+                          }
+                          title={model.model_name}
+                          type="button"
+                        >
+                          <span className="model-wheel-avatar" aria-hidden="true">
+                            {modelInitials(model.model_name)}
+                          </span>
+                          <span className="model-wheel-name">
+                            {model.model_name}
+                          </span>
+                        </button>
+                      );
+                    })}
+                    <div className="model-wheel-core" aria-live="polite">
+                      <img src="./assets/persona-icon.png" alt="" />
+                      <small>Active character</small>
+                      <strong>
+                        {settings.models.find(
+                          (model) => model.id === settings.default_model_id,
+                        )?.model_name ?? 'Choose one'}
+                      </strong>
+                    </div>
+                  </div>
+                )}
+              </section>
+
               <section className="settings-panel">
                 <div className="panel-heading">
                   <div>
@@ -1414,6 +1551,40 @@ export function SettingsPage() {
                 Drag to rotate · Scroll to zoom
               </div>
             </div>
+            <button
+              className={`deploy-character-button ${
+                selectedModel?.id === settings.default_model_id
+                  ? 'deployed'
+                  : ''
+              }`}
+              disabled={
+                busy ||
+                !bridge ||
+                !selectedModel ||
+                selectedModel.id === settings.default_model_id
+              }
+              onClick={() => {
+                if (selectedModel) {
+                  void setDefaultModel(selectedModel.id);
+                }
+              }}
+              type="button"
+            >
+              <span className="deploy-character-icon" aria-hidden="true">
+                {selectedModel?.id === settings.default_model_id ? '✓' : '↗'}
+              </span>
+              <span>
+                <strong>Deploy character</strong>
+                <small>
+                  {selectedModel?.id === settings.default_model_id
+                    ? 'Active on your desktop'
+                    : `Switch Persona to ${selectedModel?.model_name ?? 'this model'}`}
+                </small>
+              </span>
+              {selectedModel?.id === settings.default_model_id && (
+                <span className="deploy-character-badge">Active</span>
+              )}
+            </button>
             <div className="preview-now-playing">
               <span>Now previewing</span>
               <strong>{previewTitle}</strong>

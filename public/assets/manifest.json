@@ -1,6 +1,223 @@
 {
   "schemaVersion": 1,
   "distributionAllowed": false,
-  "notice": "Character media is intentionally not committed. Add redistributable files and complete all license metadata before publishing Persona.",
-  "assets": []
+  "notice": "Local CC0 test models from the Open Source Avatars registry. Distribution remains disabled until the project owner explicitly approves publishing the media.",
+  "assets": [
+    {
+      "path": "models/polydancer.vrm",
+      "role": "model",
+      "license": "CC0-1.0",
+      "source": "https://arweave.net/jPOg-G0MPH55ZQmamFhT9f8cHn-hjeAQ0mRO5gWeKMQ"
+    },
+    {
+      "path": "models/rose.vrm",
+      "role": "model",
+      "license": "CC0-1.0",
+      "source": "https://arweave.net/Ea1KXujzJatQgCFSMzGOzp_UtHqB1pyia--U3AtkMAY"
+    },
+    {
+      "path": "models/astronaut.vrm",
+      "role": "model",
+      "license": "CC0-1.0",
+      "source": "https://arweave.net/T0c0z_XEPQHy3vyXz31XB22s_6JTqHdnau8exq_I8tI"
+    },
+    {
+      "path": "models/witch.vrm",
+      "role": "model",
+      "license": "CC0-1.0",
+      "source": "https://arweave.net/0YLwWzDkvVWn9ttv2RAdc8bvWcCBjvYPpu7fpjpHYU0"
+    },
+    {
+      "path": "models/polybot.vrm",
+      "role": "model",
+      "license": "CC0-1.0",
+      "source": "https://arweave.net/DUR8v-IugXppdMBxPdE1rDO2dZCJJ7ZgBTXSRgPJFNo"
+    },
+    {
+      "path": "models/pyre-sorcerer.vrm",
+      "role": "model",
+      "license": "CC0-1.0",
+      "source": "https://arweave.net/Hc8Rd0EGKNHEevpm1D16BwP-LAPDS319Hvn0fualX_w"
+    },
+    {
+      "path": "models/moon-girl.vrm",
+      "role": "model",
+      "license": "CC0-1.0",
+      "source": "https://arweave.net/m39XL2LTq_7B1kSjjfsiA_DDqFlfs0TOWjFZy-x8Grc"
+    },
+    {
+      "path": "models/shark-person.vrm",
+      "role": "model",
+      "license": "CC0-1.0",
+      "source": "https://arweave.net/mW-D--cWzk7G8efvS8CXMIu_-501NHTHwY8Hi3bjRJ8"
+    },
+    {
+      "path": "models/cool-tiger.vrm",
+      "role": "model",
+      "license": "CC0-1.0",
+      "source": "https://arweave.net/2EQ5wsstsJaFOG9LXq_gVFKKgM8bnfPa3axYJ-VS1ug"
+    },
+    {
+      "path": "models/bao-samurai.vrm",
+      "role": "model",
+      "license": "CC0-1.0",
+      "source": "https://arweave.net/wmTy-SEXxmlp847i1U1m2GziSGp-4T8qrZ77A32LlY8"
+    },
+    {
+      "path": "models/mushroom-fairy.vrm",
+      "role": "model",
+      "license": "CC0-1.0",
+      "source": "https://arweave.net/ULlu6wg-zCwLokTXxbXzFlJzugVW_yp2pssEKJbvwx8"
+    },
+    {
+      "path": "models/strawberry-princess.vrm",
+      "role": "model",
+      "license": "CC0-1.0",
+      "source": "https://arweave.net/0Wwhn0-G8wESHYX2lD9FRPWw6smAHN_wsH6hNPrz9eE"
+    },
+    {
+      "path": "models/devil.vrm",
+      "role": "model",
+      "license": "CC0-1.0",
+      "source": "https://arweave.net/gfVzs1oH_aPaHVxpQK86HT_rqzyrFPOUKUrDJ30yprs"
+    },
+    {
+      "path": "models/rabbit.vrm",
+      "role": "model",
+      "license": "CC0-1.0",
+      "source": "https://arweave.net/RymRtrmhHx_f9ZDvtvIQb1noTHvILdjoTg5G7L2DR-8"
+    },
+    {
+      "path": "models/dino-kid.vrm",
+      "role": "model",
+      "license": "CC0-1.0",
+      "source": "https://arweave.net/T1gkB95XKXAZl_VmU1ozg5Txm--o9nY0Nge3s8zNoBs"
+    },
+    {
+      "path": "models/zombie.vrm",
+      "role": "model",
+      "license": "CC0-1.0",
+      "source": "https://arweave.net/hM8199iDasTM_hlX6RykOToEiNHWxAUc8EegeTsjAuE"
+    },
+    {
+      "path": "models/astrodisco.vrm",
+      "role": "model",
+      "license": "CC0-1.0",
+      "source": "https://arweave.net/uS4wvZn6sURMWJuwWzWnCqGaqDtZSiQQdTwci0f6hmM"
+    },
+    {
+      "path": "models/ghost.vrm",
+      "role": "model",
+      "license": "CC0-1.0",
+      "source": "https://arweave.net/fSy4hx9L9SqiQIKzjhRLhXzDZpQEJA5izCcDej_WJi8"
+    },
+    {
+      "path": "models/cool-alien.vrm",
+      "role": "model",
+      "license": "CC0-1.0",
+      "source": "https://arweave.net/FB3g343NrNmQrr4V0191V93pbzOVwTiQWF3PEcL4MNg"
+    },
+    {
+      "path": "models/froggy.vrm",
+      "role": "model",
+      "license": "CC0-1.0",
+      "source": "https://arweave.net/0iS8IZahQQDqY27djsEsshpDmWJHEoOSfxwYVJ1Opys"
+    },
+    {
+      "path": "models/unicorn-person.vrm",
+      "role": "model",
+      "license": "CC0-1.0",
+      "source": "https://arweave.net/BNDfq6FLwgxUdaJJ55pFbJxjv7J4eYV10gHYWYDpcvg"
+    },
+    {
+      "path": "models/cosmic-person.vrm",
+      "role": "model",
+      "license": "CC0-1.0",
+      "source": "https://arweave.net/RJQUk7bmX8XaoTp-z0mWr8xDh58G6d6mvTbQJjy9jl4"
+    },
+    {
+      "path": "models/chill-penguin.vrm",
+      "role": "model",
+      "license": "CC0-1.0",
+      "source": "https://arweave.net/4c5EhflLKYfBtzpcLlvZY0afAwXLVdxXmpgwGaarAIQ"
+    },
+    {
+      "path": "models/tasty-sandwich.vrm",
+      "role": "model",
+      "license": "CC0-1.0",
+      "source": "https://arweave.net/7_0ym_o95s53_FWI4dOaLvIA6M4J2iQ43XZ0rp4WV1E"
+    },
+    {
+      "path": "models/cool-turtle.vrm",
+      "role": "model",
+      "license": "CC0-1.0",
+      "source": "https://arweave.net/wci88e79J3iklIScn34ksczgnYE-lie65Y4xEuO0xcI"
+    },
+    {
+      "path": "models/alien-skeleton.vrm",
+      "role": "model",
+      "license": "CC0-1.0",
+      "source": "https://arweave.net/qNQg3kmgnCNS5WHFxC3Kot2D5TPPWO8G7DQaLmUF1_0"
+    },
+    {
+      "path": "models/sunflower-person.vrm",
+      "role": "model",
+      "license": "CC0-1.0",
+      "source": "https://arweave.net/86bvPTllXhyOfFPP-DmofadVmPM8HkJB9yqPq4U-pvs"
+    },
+    {
+      "path": "models/falcon-dude.vrm",
+      "role": "model",
+      "license": "CC0-1.0",
+      "source": "https://arweave.net/WjKeQtMs4ZkmIvPADCyMDLW7C2lS_9uYCqge7uFgJ9A"
+    },
+    {
+      "path": "models/weird-cat.vrm",
+      "role": "model",
+      "license": "CC0-1.0",
+      "source": "https://arweave.net/pPaWwgWt8Gu7hJyHo_wG45lxPVV8ka8zBJJKSQD8Ngs"
+    },
+    {
+      "path": "models/bot-bunny.vrm",
+      "role": "model",
+      "license": "CC0-1.0",
+      "source": "https://arweave.net/4aox7v4AJVWR5oVxIMcqHbreKDDDHFnePhhPpVwkqnc"
+    },
+    {
+      "path": "models/good-knight.vrm",
+      "role": "model",
+      "license": "CC0-1.0",
+      "source": "https://arweave.net/GssJhnk0HJsS6u3ZNN6fTk4TEL7g4AbVGoCztUgjAu0"
+    },
+    {
+      "path": "models/lady-koi.vrm",
+      "role": "model",
+      "license": "CC0-1.0",
+      "source": "https://arweave.net/t3aTp6AhxfdLcq5I3HZx29wK8MFQGmDC9wPwXrHQoW0"
+    },
+    {
+      "path": "models/dream-fighter.vrm",
+      "role": "model",
+      "license": "CC0-1.0",
+      "source": "https://arweave.net/DF1j9AaUmMferCUrB4BLPtA3AoXE7O3qpE9yP-SSYcQ"
+    },
+    {
+      "path": "models/lil-shark.vrm",
+      "role": "model",
+      "license": "CC0-1.0",
+      "source": "https://arweave.net/nVqBB0cwDybmATcohrZKkgx6hVDqPKTIF2-MwNVVMdw"
+    },
+    {
+      "path": "models/cool-bee.vrm",
+      "role": "model",
+      "license": "CC0-1.0",
+      "source": "https://arweave.net/-M047TNjC36mcEWMprML2g7rawORlVGIgD7CKvjqcfw"
+    },
+    {
+      "path": "models/ghost-pumpking.vrm",
+      "role": "model",
+      "license": "CC0-1.0",
+      "source": "https://arweave.net/w7BA_cYyPX8wtbr2YcUNQtGjQkTPAGuA-l4WOA2Pr0k"
+    }
+  ]
 }
