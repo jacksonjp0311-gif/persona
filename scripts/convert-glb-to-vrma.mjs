@@ -113,19 +113,53 @@ function readGlb(sourcePath) {
   });
 }
 
-export function retimeClip(clip, speed = 1) {
+export function trimAndRetimeClip(
+  clip,
+  { start = 0, end = clip.duration, speed = 1 } = {},
+) {
   if (!Number.isFinite(speed) || speed <= 0) {
     throw new Error("Animation speed must be greater than zero.");
   }
-  const output = clip.clone();
-  for (const track of output.tracks) {
-    track.times = Float32Array.from(track.times, (time) => time / speed);
+  const clipStart = Math.max(0, Math.min(start, clip.duration));
+  const clipEnd = Math.max(clipStart, Math.min(end, clip.duration));
+  if (clipEnd - clipStart < 0.05) {
+    throw new Error("Trimmed animation must be at least 0.05 seconds long.");
   }
-  output.duration = clip.duration / speed;
-  return output;
+  const tracks = clip.tracks.map((track) => {
+    const valueSize = track.getValueSize();
+    const selectedTimes = [
+      clipStart,
+      ...track.times.filter(
+        (time) => time > clipStart && time < clipEnd,
+      ),
+      clipEnd,
+    ];
+    const interpolant = track.createInterpolant();
+    const values = new Float32Array(selectedTimes.length * valueSize);
+    selectedTimes.forEach((time, index) => {
+      values.set(interpolant.evaluate(time), index * valueSize);
+    });
+    return new track.constructor(
+      track.name,
+      Float32Array.from(
+        selectedTimes,
+        (time) => (time - clipStart) / speed,
+      ),
+      values,
+    );
+  });
+  return new THREE.AnimationClip(
+    clip.name,
+    (clipEnd - clipStart) / speed,
+    tracks,
+  );
 }
 
-function normalizeHipsPosition(clip, hipsName) {
+export function retimeClip(clip, speed = 1) {
+  return trimAndRetimeClip(clip, { speed });
+}
+
+export function normalizeHipsPosition(clip, hipsName) {
   const track = clip.tracks.find(
     (candidate) => candidate.name === `${hipsName}.position`,
   );
@@ -138,6 +172,7 @@ function normalizeHipsPosition(clip, hipsName) {
       -0.35,
       0.35,
     );
+    track.values[index + 1] = 0;
     track.values[index + 2] = THREE.MathUtils.clamp(
       track.values[index + 2] - originZ,
       -0.35,
@@ -146,7 +181,12 @@ function normalizeHipsPosition(clip, hipsName) {
   }
 }
 
-async function convert(sourcePath, clipName, outputPath, speed) {
+async function convert(
+  sourcePath,
+  clipName,
+  outputPath,
+  { end, rootMotion, speed, start },
+) {
   const gltf = await readGlb(sourcePath);
   const sourceClip = gltf.animations.find(
     (candidate) => candidate.name === clipName,
@@ -174,7 +214,7 @@ async function convert(sourcePath, clipName, outputPath, speed) {
 
   const allowedNames = new Set([...boneMap.values()].map((bone) => bone.name));
   const hipsName = boneMap.get("hips").name;
-  const clip = retimeClip(sourceClip, speed);
+  const clip = trimAndRetimeClip(sourceClip, { end, speed, start });
   clip.name = path.basename(outputPath, path.extname(outputPath));
   clip.tracks = clip.tracks.filter((track) => {
     const separator = track.name.lastIndexOf(".");
@@ -183,7 +223,9 @@ async function convert(sourcePath, clipName, outputPath, speed) {
     return (
       allowedNames.has(nodeName) &&
       (property === "quaternion" ||
-        (nodeName === hipsName && property === "position"))
+        (rootMotion &&
+          nodeName === hipsName &&
+          property === "position"))
     );
   });
   normalizeHipsPosition(clip, hipsName);
@@ -206,16 +248,28 @@ if (
   import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href
 ) {
   const args = process.argv.slice(2);
+  function takeNumberFlag(name, fallback) {
+    const index = args.indexOf(name);
+    if (index === -1) return fallback;
+    const value = Number(args[index + 1]);
+    args.splice(index, 2);
+    return value;
+  }
   const speedFlag = args.indexOf("--speed");
   let speed = 1;
   if (speedFlag !== -1) {
     speed = Number(args[speedFlag + 1]);
     args.splice(speedFlag, 2);
   }
+  const start = takeNumberFlag("--start", 0);
+  const end = takeNumberFlag("--end", Number.POSITIVE_INFINITY);
+  const noRootMotionFlag = args.indexOf("--no-root-motion");
+  const rootMotion = noRootMotionFlag === -1;
+  if (noRootMotionFlag !== -1) args.splice(noRootMotionFlag, 1);
   const [source, clipName, output] = args;
   if (!source || !clipName || !output) {
     console.error(
-      "Usage: node scripts/convert-glb-to-vrma.mjs SOURCE.glb CLIP_NAME OUTPUT.vrma [--speed 1.15]",
+      "Usage: node scripts/convert-glb-to-vrma.mjs SOURCE.glb CLIP_NAME OUTPUT.vrma [--start 0] [--end SECONDS] [--speed 1.15] [--no-root-motion]",
     );
     process.exit(1);
   }
@@ -224,7 +278,7 @@ if (
     path.resolve(source),
     clipName,
     path.resolve(output),
-    speed,
+    { end, rootMotion, speed, start },
   ).catch((error) => {
     console.error(error);
     process.exit(1);

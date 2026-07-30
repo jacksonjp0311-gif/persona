@@ -15,17 +15,22 @@ The following VRMA files are adaptations of BVH motion captures made by the
 Space-XR team at IMPA VISGRAF Lab and published under Creative Commons
 Attribution-ShareAlike 4.0 International:
 
-- `space-xr-indian-dance.vrma`, `space-xr-pop-dance.vrma`, and
-  `space-xr-wave-dance.vrma`: performance by Thaisa Martins.
+- `space-xr-indian-dance.vrma`, `space-xr-pop-dance.vrma`,
+  `space-xr-wave-dance.vrma`, `space-xr-accent-pop-long.vrma`,
+  `space-xr-soft-step-long.vrma`, `space-xr-line-step-long.vrma`,
+  `space-xr-street-flow-long.vrma`, `space-xr-turn-groove-long.vrma`, and
+  `space-xr-power-freestyle-long.vrma`: performances by Thaisa Martins and
+  Space-XR collaborators.
 
 Source collection: https://visgraflab.impa.br/dance/?p=1
 
 License: https://creativecommons.org/licenses/by-sa/4.0/
 
-Persona converted the original BVH skeleton and keyframes to the VRM Animation
-format, mapped the source humanoid bones to VRM humanoid bone names, and changed
-the container format to binary glTF. These adapted animation files remain
-licensed under CC BY-SA 4.0.
+Persona selected self-contained motion phrases, converted the original BVH
+skeleton and keyframes to the VRM Animation format, mapped the source humanoid
+bones to VRM humanoid bone names, constrained desktop root travel, smoothed
+capture noise, and changed the container format to binary glTF. These adapted
+animation files remain licensed under CC BY-SA 4.0.
 
 ## Quaternius Universal Animation Library
 
@@ -44,8 +49,10 @@ root travel, and converted the container to VRM Animation binary glTF.
 
 ## Local development media
 
-VRM and VRMA files are intentionally ignored by Git. Any local files without a
-verified redistribution license are development inputs only. Therefore:
+VRM character files and unverified local motion inputs are intentionally
+ignored by Git. Verified motion adaptations may be force-added with their
+manifest provenance. Any local files without a verified redistribution license
+are development inputs only. Therefore:
 
 - do not publish unverified files in a source repository;
 - do not attach a package containing them to a release;

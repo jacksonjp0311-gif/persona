@@ -238,6 +238,42 @@
       "source": "https://visgraflab.impa.br/dance/wp-content/uploads/2023/09/ondula-vale.bvh"
     },
     {
+      "path": "animations/space-xr-accent-pop-long.vrma",
+      "role": "animation",
+      "license": "CC-BY-SA-4.0",
+      "source": "https://visgraflab.impa.br/dance/wp-content/uploads/2023/09/thaisa-acentos.bvh"
+    },
+    {
+      "path": "animations/space-xr-soft-step-long.vrma",
+      "role": "animation",
+      "license": "CC-BY-SA-4.0",
+      "source": "https://visgraflab.impa.br/dance/wp-content/uploads/2023/09/improviso01.bvh"
+    },
+    {
+      "path": "animations/space-xr-line-step-long.vrma",
+      "role": "animation",
+      "license": "CC-BY-SA-4.0",
+      "source": "https://visgraflab.impa.br/dance/wp-content/uploads/2023/09/thaisa-quadrado.bvh"
+    },
+    {
+      "path": "animations/space-xr-street-flow-long.vrma",
+      "role": "animation",
+      "license": "CC-BY-SA-4.0",
+      "source": "https://visgraflab.impa.br/dance/wp-content/uploads/2023/04/thaiseaimproviso.bvh"
+    },
+    {
+      "path": "animations/space-xr-turn-groove-long.vrma",
+      "role": "animation",
+      "license": "CC-BY-SA-4.0",
+      "source": "https://visgraflab.impa.br/dance/wp-content/uploads/2023/04/thaiseaimproviso.bvh"
+    },
+    {
+      "path": "animations/space-xr-power-freestyle-long.vrma",
+      "role": "animation",
+      "license": "CC-BY-SA-4.0",
+      "source": "https://visgraflab.impa.br/dance/wp-content/uploads/2023/04/thaisa-take0.bvh"
+    },
+    {
       "path": "animations/quaternius-idle.vrma",
       "role": "animation",
       "license": "CC0-1.0",
@@ -272,12 +308,6 @@
       "role": "animation",
       "license": "CC0-1.0",
       "source": "https://quaternius.itch.io/universal-animation-library-2"
-    },
-    {
-      "path": "animations/quaternius-quarterback-release.vrma",
-      "role": "animation",
-      "license": "CC0-1.0",
-      "source": "https://quaternius.itch.io/universal-animation-library"
     },
     {
       "path": "animations/quaternius-folded-arms.vrma",

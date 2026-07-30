@@ -82,6 +82,28 @@ export function motionRange(animation) {
   return largest;
 }
 
+export function rootMotionBounds(animation) {
+  const track = animation.humanoidTracks.translation.get("hips");
+  if (!track) return null;
+  const bounds = {
+    maxX: Number.NEGATIVE_INFINITY,
+    maxY: Number.NEGATIVE_INFINITY,
+    maxZ: Number.NEGATIVE_INFINITY,
+    minX: Number.POSITIVE_INFINITY,
+    minY: Number.POSITIVE_INFINITY,
+    minZ: Number.POSITIVE_INFINITY,
+  };
+  for (let index = 0; index < track.values.length; index += 3) {
+    bounds.minX = Math.min(bounds.minX, track.values[index]);
+    bounds.maxX = Math.max(bounds.maxX, track.values[index]);
+    bounds.minY = Math.min(bounds.minY, track.values[index + 1]);
+    bounds.maxY = Math.max(bounds.maxY, track.values[index + 1]);
+    bounds.minZ = Math.min(bounds.minZ, track.values[index + 2]);
+    bounds.maxZ = Math.max(bounds.maxZ, track.values[index + 2]);
+  }
+  return bounds;
+}
+
 export async function validateMotionFile(filePath) {
   const animation = await loadAnimation(filePath);
   const missingBones = REQUIRED_BONES.filter(
@@ -90,8 +112,8 @@ export async function validateMotionFile(filePath) {
   if (missingBones.length > 0) {
     throw new Error(`missing humanoid bones: ${missingBones.join(", ")}`);
   }
-  if (animation.duration < 0.2 || animation.duration > 8) {
-    throw new Error(`duration ${animation.duration.toFixed(2)}s is outside 0.2-8s`);
+  if (animation.duration < 0.2 || animation.duration > 14) {
+    throw new Error(`duration ${animation.duration.toFixed(2)}s is outside 0.2-14s`);
   }
   let minimumArmEnergy = Number.POSITIVE_INFINITY;
   for (let sample = 0; sample <= 60; sample += 1) {
@@ -109,10 +131,31 @@ export async function validateMotionFile(filePath) {
   if (range < 0.025) {
     throw new Error(`motion range ${range.toFixed(3)}rad is effectively static`);
   }
+  const rootBounds = rootMotionBounds(animation);
+  if (
+    rootBounds &&
+    (rootBounds.minY < -0.22 || rootBounds.maxY > 0.22)
+  ) {
+    throw new Error(
+      `vertical root travel ${rootBounds.minY.toFixed(2)}..${rootBounds.maxY.toFixed(2)}m can make the avatar float`,
+    );
+  }
+  if (
+    rootBounds &&
+    Math.max(
+      Math.abs(rootBounds.minX),
+      Math.abs(rootBounds.maxX),
+      Math.abs(rootBounds.minZ),
+      Math.abs(rootBounds.maxZ),
+    ) > 0.45
+  ) {
+    throw new Error("horizontal root travel escapes the desktop framing");
+  }
   return {
     duration: animation.duration,
     minimumArmEnergy,
     range,
+    rootBounds,
   };
 }
 

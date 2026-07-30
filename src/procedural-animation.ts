@@ -104,16 +104,16 @@ const beat = (time: number, bpm = 110) =>
 export const PROCEDURAL_DURATIONS: Readonly<Record<ProceduralPreset, number>> = {
   'breathing-idle': 4,
   'conversational-talk': 4,
-  'quarterback-throw': 3.2,
-  'receiver-catch': 2.8,
-  'touchdown-signal': 2.6,
-  'ball-spike': 2.7,
-  'first-down': 2.5,
-  'juke-left-right': 3,
-  'stiff-arm': 2.5,
-  'huddle-clap': 3,
-  'victory-flex': 2.8,
-  'griddy-celebration': 5,
+  'quarterback-throw': 1.8,
+  'receiver-catch': 1.6,
+  'touchdown-signal': 1.8,
+  'ball-spike': 1.8,
+  'first-down': 1.6,
+  'juke-left-right': 2,
+  'stiff-arm': 1.7,
+  'huddle-clap': 2,
+  'victory-flex': 1.8,
+  'griddy-celebration': 4.2,
   'two-step': 4,
   'running-man': 4,
   'heel-toe-shuffle': 4,
@@ -197,26 +197,30 @@ export function sampleProceduralPose(
       };
     case 'quarterback-throw': {
       const p = (time % PROCEDURAL_DURATIONS[preset]) / PROCEDURAL_DURATIONS[preset];
-      const load = ease(clamp(p / 0.38));
-      const release = ease(clamp((p - 0.38) / 0.25));
-      const follow = ease(clamp((p - 0.63) / 0.37));
+      const load = ease(clamp(p / 0.32));
+      const release = ease(clamp((p - 0.32) / 0.26));
+      const follow = ease(clamp((p - 0.58) / 0.42));
       return {
-        hips: [0, -0.3 * load + 0.65 * release - 0.3 * follow, 0],
-        chest: [0.08 * load, -0.55 * load + 0.95 * release - 0.4 * follow, 0],
-        rightUpperArm: [-0.5 - 1.25 * load + 1.5 * release, -0.2, 0.55],
-        rightLowerArm: [-1.25 * load + 0.9 * release, 0, 0],
-        leftUpperArm: [-0.6 + 0.4 * release, 0, -0.35],
-        leftLowerArm: [-0.85 + 0.45 * release, 0, 0],
-        leftUpperLeg: [0.25 * load - 0.4 * release, 0, 0],
-        rightUpperLeg: [-0.2 * load + 0.3 * release, 0, 0],
+        hips: [0.08 * load - 0.05 * release, -0.24 * load + 0.48 * release - 0.24 * follow, 0],
+        chest: [0.08 * load, -0.48 * load + 0.92 * release - 0.44 * follow, 0],
+        rightUpperArm: [
+          -0.35 - 1.45 * load + 1.85 * release - 0.25 * follow,
+          -0.16,
+          0.95 - 0.22 * load + 0.12 * release,
+        ],
+        rightLowerArm: [-0.3 - 1.1 * load + 1.55 * release - 0.3 * follow, 0, 0],
+        leftUpperArm: [-0.48 + 0.2 * release, 0, -0.88],
+        leftLowerArm: [-0.95 + 0.38 * release, 0, 0],
+        leftUpperLeg: [0.22 * load - 0.32 * release, 0, 0],
+        rightUpperLeg: [-0.18 * load + 0.26 * release, 0, 0],
       };
     }
     case 'receiver-catch': {
       const reach = ease(pulse(time, 0.7));
       return {
         chest: [-0.12 * reach, 0, 0],
-        leftUpperArm: [-1.15 * reach, 0, -0.35],
-        rightUpperArm: [-1.15 * reach, 0, 0.35],
+        leftUpperArm: [-0.35 - 0.8 * reach, 0, -0.82],
+        rightUpperArm: [-0.35 - 0.8 * reach, 0, 0.82],
         leftLowerArm: [-0.35 - 0.45 * reach, 0, 0],
         rightLowerArm: [-0.35 - 0.45 * reach, 0, 0],
         leftHand: [0, -0.18 * reach, 0],
@@ -226,19 +230,19 @@ export function sampleProceduralPose(
     case 'touchdown-signal':
       return {
         chest: [-0.08, 0, 0],
-        leftUpperArm: [-2.6, 0, -0.25],
-        rightUpperArm: [-2.6, 0, 0.25],
+        leftUpperArm: [-2.5, 0, -0.72],
+        rightUpperArm: [-2.5, 0, 0.72],
         leftLowerArm: [-0.12, 0, 0],
         rightLowerArm: [-0.12, 0, 0],
       };
     case 'ball-spike': {
-      const p = (time % 2.7) / 2.7;
+      const p = (time % PROCEDURAL_DURATIONS[preset]) / PROCEDURAL_DURATIONS[preset];
       const slam = ease(clamp((p - 0.28) / 0.28));
       return {
         chest: [0.25 * slam, -0.22 * slam, 0],
-        rightUpperArm: [-2.4 + 2.8 * slam, 0, 0.25],
+        rightUpperArm: [-2.4 + 2.8 * slam, 0, 0.78],
         rightLowerArm: [-0.4 + 0.8 * slam, 0, 0],
-        leftUpperArm: [-0.25, 0, -0.3],
+        leftUpperArm: [-0.35, 0, -0.9],
         leftUpperLeg: [0.22 * slam, 0, 0],
       };
     }
@@ -246,17 +250,17 @@ export function sampleProceduralPose(
       return {
         hips: [0, 0.15 * sway, 0],
         chest: [0, 0.12 * sway, 0],
-        leftUpperArm: [-0.15, 0, -1.2],
-        leftLowerArm: [-0.15, 0, 0],
-        rightUpperArm: [-0.15, 0, 1.2],
+        leftUpperArm: [-0.15, 0, -0.98],
+        leftLowerArm: [-0.35, 0, 0],
+        rightUpperArm: [-0.3, 0, 0.55],
         rightLowerArm: [-0.15, 0, 0],
       };
     case 'juke-left-right':
       return {
         hips: [0.08, 0.32 * step, -0.22 * step],
         chest: [-0.12, -0.2 * step, 0.18 * step],
-        leftUpperArm: [-0.45 - 0.2 * step, 0, -0.25],
-        rightUpperArm: [-0.45 + 0.2 * step, 0, 0.25],
+        leftUpperArm: [-0.45 - 0.2 * step, 0, -0.86],
+        rightUpperArm: [-0.45 + 0.2 * step, 0, 0.86],
         leftUpperLeg: [0.45 * step, 0, 0.12 * step],
         rightUpperLeg: [-0.45 * step, 0, 0.12 * step],
         leftLowerLeg: [0.4 * Math.max(0, -step), 0, 0],
@@ -266,17 +270,17 @@ export function sampleProceduralPose(
       return {
         hips: [0.05, -0.18, 0],
         chest: [-0.08, 0.25, 0],
-        rightUpperArm: [-0.55, 0.15, 1.15],
+        rightUpperArm: [-1.15, 0.15, 0.82],
         rightLowerArm: [-0.1, 0, 0],
-        leftUpperArm: [-0.55, 0, -0.25],
+        leftUpperArm: [-0.55, 0, -0.9],
         leftLowerArm: [-0.8, 0, 0],
       };
     case 'huddle-clap': {
       const clap = Math.abs(wave(time, 1.6));
       return {
         chest: [0.08 * b, 0, 0],
-        leftUpperArm: [-0.55, 0, -0.42 + 0.3 * clap],
-        rightUpperArm: [-0.55, 0, 0.42 - 0.3 * clap],
+        leftUpperArm: [-0.72, 0, -0.82 + 0.18 * clap],
+        rightUpperArm: [-0.72, 0, 0.82 - 0.18 * clap],
         leftLowerArm: [-0.9, 0, 0],
         rightLowerArm: [-0.9, 0, 0],
       };
@@ -293,8 +297,8 @@ export function sampleProceduralPose(
       return {
         hips: [0.05 + 0.08 * Math.abs(step), 0.15 * step, -0.1 * step],
         chest: [-0.08, -0.1 * step, 0.08 * step],
-        leftUpperArm: [-0.85 + 0.25 * step, 0, -0.18],
-        rightUpperArm: [-0.85 - 0.25 * step, 0, 0.18],
+        leftUpperArm: [-0.85 + 0.25 * step, 0, -0.82],
+        rightUpperArm: [-0.85 - 0.25 * step, 0, 0.82],
         leftLowerArm: [-1.05 + 0.2 * step, 0, 0],
         rightLowerArm: [-1.05 - 0.2 * step, 0, 0],
         leftUpperLeg: [0.52 * step, 0, 0],

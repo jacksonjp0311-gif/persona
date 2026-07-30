@@ -98,8 +98,9 @@ type AvatarBridgeEvent =
       animation: PersonaAnimationType | 'CUSTOM';
       animationName?: string;
       animationUrls?: string[];
+      mirror?: boolean;
       proceduralPreset?: string | null;
-      source?: 'command';
+      source?: 'ambient' | 'command';
       requestId?: number;
     }
   | { type: 'listener-status'; status: AudioListenerStatus }

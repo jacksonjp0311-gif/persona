@@ -57,8 +57,10 @@ export function App() {
             animation: event.animation,
             animationName: event.animationName,
             animationUrls: event.animationUrls,
+            mirror: event.mirror,
             proceduralPreset: event.proceduralPreset,
             requestId: event.requestId,
+            source: event.source ?? 'command',
           });
         } else if (event.animation !== 'CUSTOM') {
           setVoiceAnimation(event.animation);
@@ -81,6 +83,19 @@ export function App() {
     voice.phase === 'active' &&
     voice.activity === 'speaking' &&
     !voice.outputMuted;
+
+  const ambientDanceAllowed =
+    voice.phase === 'inactive' ||
+    (voice.phase === 'active' && voice.activity === 'idle');
+
+  useEffect(() => {
+    if (
+      bodyOverride?.source === 'ambient' &&
+      !ambientDanceAllowed
+    ) {
+      setBodyOverride(null);
+    }
+  }, [ambientDanceAllowed, bodyOverride]);
 
   useEffect(() => {
     const immediateAnimation = immediateVoiceAnimation(voice);
@@ -137,6 +152,7 @@ export function App() {
         animationUrls={animationUrls}
         audioLevel={audioLevel}
         characterSize={settings.character_size}
+        mirror={bodyOverride?.mirror ?? false}
         modelUrl={defaultModel.asset_url}
         onAnimationComplete={handleAnimationComplete}
         playback={bodyOverride ? 'once' : 'loop'}

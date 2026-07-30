@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
-import { calculateFullBodyFraming } from './camera-framing';
+import {
+  calculateFullBodyFraming,
+  humanoidFramingBox,
+} from './camera-framing';
 
 describe('calculateFullBodyFraming', () => {
   it('centers and fits a full-height avatar in a portrait window', () => {
@@ -46,5 +49,38 @@ describe('calculateFullBodyFraming', () => {
       1.5,
     );
     expect(zoomed.target.toArray()).toEqual(normal.target.toArray());
+  });
+
+  it('supports a lower camera target for bottom-heavy desktop avatars', () => {
+    const box = new THREE.Box3(
+      new THREE.Vector3(-0.4, 0, -0.2),
+      new THREE.Vector3(0.4, 2, 0.2),
+    );
+    const framing = calculateFullBodyFraming(
+      box,
+      20,
+      430 / 680,
+      1.12,
+      1,
+      0.18,
+    );
+
+    expect(framing.target.y).toBeCloseTo(0.36);
+    expect(framing.position.y).toBeCloseTo(0.36);
+  });
+
+  it('ignores oversized hidden vertical mesh bounds around a humanoid', () => {
+    const sceneBox = new THREE.Box3(
+      new THREE.Vector3(-0.5, -1.5, -0.2),
+      new THREE.Vector3(0.5, 4.5, 0.2),
+    );
+    const box = humanoidFramingBox(sceneBox, {
+      feet: new THREE.Vector3(0, 0, 0),
+      head: new THREE.Vector3(0, 1.6, 0),
+    });
+
+    expect(box.min.y).toBeCloseTo(-0.128);
+    expect(box.max.y).toBeCloseTo(2.32);
+    expect(box.getCenter(new THREE.Vector3()).y).toBeCloseTo(1.096);
   });
 });

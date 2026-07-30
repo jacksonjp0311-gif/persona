@@ -38,6 +38,12 @@ const {
 const {
   createSettingsWindowPresentationGate,
 } = require("./settings-window-presentation.cjs");
+const {
+  ambientDanceCandidates,
+  ambientDanceDelay,
+  canPlayAmbientDance,
+  chooseAmbientDance,
+} = require("./ambient-dance.cjs");
 
 const WINDOW_WIDTH = 430;
 const WINDOW_HEIGHT = 680;
@@ -82,6 +88,9 @@ let mcpServerPort = Number(
 );
 let mcpAnimationCatalogSignature = null;
 let overlayDragState = null;
+let ambientDanceTimer = null;
+let ambientDancePlayed = false;
+let previousAmbientDanceId = null;
 const pendingRendererEvents = new Map();
 
 protocol.registerSchemesAsPrivileged([
@@ -114,6 +123,51 @@ function positionWindow(window) {
 
 function hasConfiguredModel() {
   return modelConfigured;
+}
+
+function clearAmbientDanceTimer() {
+  clearTimeout(ambientDanceTimer);
+  ambientDanceTimer = null;
+}
+
+function scheduleAmbientDance() {
+  if (
+    ambientDanceTimer ||
+    isQuitting ||
+    !hasConfiguredModel() ||
+    !avatarWindow ||
+    avatarWindow.isDestroyed() ||
+    !avatarWindow.isVisible() ||
+    !canPlayAmbientDance(latestVoiceState)
+  ) {
+    return;
+  }
+  const dances = ambientDanceCandidates(
+    settingsStore?.getSnapshot().animations ?? [],
+  );
+  if (dances.length === 0) return;
+  ambientDanceTimer = setTimeout(() => {
+    ambientDanceTimer = null;
+    if (
+      isQuitting ||
+      !avatarWindow ||
+      avatarWindow.isDestroyed() ||
+      !avatarWindow.isVisible() ||
+      !canPlayAmbientDance(latestVoiceState)
+    ) {
+      return;
+    }
+    const dance = chooseAmbientDance(dances, previousAmbientDanceId);
+    if (!dance) return;
+    previousAmbientDanceId = dance.id;
+    ambientDancePlayed = true;
+    playConfiguredAnimation(dance.animation_name, {
+      mirror: Math.random() >= 0.5,
+      source: "ambient",
+    });
+    scheduleAmbientDance();
+  }, ambientDanceDelay(!ambientDancePlayed));
+  ambientDanceTimer.unref?.();
 }
 
 function scheduleHyprlandWindowConfiguration({
@@ -182,10 +236,12 @@ function showOverlay({ focus = false } = {}) {
     window.showInactive();
   }
   scheduleHyprlandWindowConfiguration();
+  scheduleAmbientDance();
 }
 
 async function hideOverlay() {
   debugLog("hide overlay");
+  clearAmbientDanceTimer();
   const targetWindow = avatarWindow;
   if (!targetWindow || targetWindow.isDestroyed()) return;
   const placement = await getHyprlandWindowPlacement(process.pid);
@@ -197,6 +253,7 @@ async function hideOverlay() {
 }
 
 function destroyOverlayForSetup() {
+  clearAmbientDanceTimer();
   clearTimeout(hyprlandConfigurationTimer);
   hyprlandConfigurationGeneration += 1;
   hyprlandConfigurationTimer = null;
@@ -308,6 +365,7 @@ function createWindow() {
     hyprlandConfigured = false;
     hyprlandConfiguring = false;
     rendererLoadHookAttached = false;
+    clearAmbientDanceTimer();
     avatarWindow = null;
   });
 
@@ -414,6 +472,7 @@ function publishSettings(snapshot) {
     }
   }
   refreshTrayMenu();
+  scheduleAmbientDance();
   if (!wasConfigured && modelConfigured) {
     void audioListener?.start();
     showOverlay();
@@ -428,7 +487,10 @@ function publishSettings(snapshot) {
   return snapshot;
 }
 
-function playConfiguredAnimation(animationName) {
+function playConfiguredAnimation(
+  animationName,
+  { mirror = false, source = "command" } = {},
+) {
   if (!hasConfiguredModel()) return false;
   const installedAnimation = settingsStore?.getAnimation(animationName);
   if (
@@ -438,14 +500,19 @@ function playConfiguredAnimation(animationName) {
   ) {
     return false;
   }
+  if (source === "command") {
+    clearAmbientDanceTimer();
+    ambientDancePlayed = true;
+  }
   animationCommandRequestId += 1;
   handleBridgeEvent({
     type: "animation",
     animation: installedAnimation.animation_type ?? "CUSTOM",
     animationName: installedAnimation.animation_name,
     animationUrls: installedAnimation.asset_urls,
+    mirror,
     proceduralPreset: installedAnimation.procedural_preset,
-    source: "command",
+    source,
     requestId: animationCommandRequestId,
   });
   return true;
@@ -510,6 +577,8 @@ function handleBridgeEvent(event) {
   const canShowAvatar = hasConfiguredModel();
   if (event.type === "state") {
     latestVoiceState = event.state;
+    if (canPlayAmbientDance(latestVoiceState)) scheduleAmbientDance();
+    else clearAmbientDanceTimer();
     if (
       canShowAvatar &&
       (event.state.phase === "starting" || event.state.phase === "active")
@@ -892,6 +961,7 @@ app.on("activate", () => showOverlay({ focus: true }));
 
 app.on("before-quit", () => {
   isQuitting = true;
+  clearAmbientDanceTimer();
   clearTimeout(hyprlandConfigurationTimer);
   audioListener?.stop();
   globalShortcut.unregisterAll();

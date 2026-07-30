@@ -213,9 +213,7 @@
       "animation_trigger_scenario": "Use for a pass, launch, decisive handoff, or big reveal.",
       "animation_type": null,
       "procedural_preset": "quarterback-throw",
-      "asset_paths": [
-        "animations/quaternius-quarterback-release.vrma"
-      ]
+      "asset_paths": []
     },
     {
       "id": "nfl-receiver-catch",
@@ -487,6 +485,72 @@
       "animation_type": "DANCE",
       "procedural_preset": "freestyle-groove",
       "asset_paths": []
+    },
+    {
+      "id": "dance-accent-pop",
+      "animation_name": "accent-pop",
+      "animation_description": "A longer captured groove with quick accents, angled poses, and crisp changes of direction.",
+      "animation_trigger_scenario": "Use for upbeat social-dance reactions and punchy beat changes.",
+      "animation_type": "DANCE",
+      "procedural_preset": null,
+      "asset_paths": [
+        "animations/space-xr-accent-pop-long.vrma"
+      ]
+    },
+    {
+      "id": "dance-soft-step",
+      "animation_name": "soft-step",
+      "animation_description": "A relaxed captured step phrase with fluid upper-body accents and natural weight shifts.",
+      "animation_trigger_scenario": "Use for a current soft-groove dance break or a laid-back reaction.",
+      "animation_type": "DANCE",
+      "procedural_preset": null,
+      "asset_paths": [
+        "animations/space-xr-soft-step-long.vrma"
+      ]
+    },
+    {
+      "id": "dance-line-step",
+      "animation_name": "line-step",
+      "animation_description": "A rhythmic captured stepping pattern with repeated directional footwork.",
+      "animation_trigger_scenario": "Use for line-dance energy, two-step rhythms, and group-celebration moments.",
+      "animation_type": "DANCE",
+      "procedural_preset": null,
+      "asset_paths": [
+        "animations/space-xr-line-step-long.vrma"
+      ]
+    },
+    {
+      "id": "dance-street-flow",
+      "animation_name": "street-flow",
+      "animation_description": "A full captured freestyle phrase with grounded steps, torso rhythm, and expressive arms.",
+      "animation_trigger_scenario": "Use for a longer modern freestyle or high-energy desktop dance.",
+      "animation_type": "DANCE",
+      "procedural_preset": null,
+      "asset_paths": [
+        "animations/space-xr-street-flow-long.vrma"
+      ]
+    },
+    {
+      "id": "dance-turn-groove",
+      "animation_name": "turn-groove",
+      "animation_description": "A captured groove phrase built around direction changes and flowing turns.",
+      "animation_trigger_scenario": "Use for entrances, transitions, and smooth social-dance moments.",
+      "animation_type": "DANCE",
+      "procedural_preset": null,
+      "asset_paths": [
+        "animations/space-xr-turn-groove-long.vrma"
+      ]
+    },
+    {
+      "id": "dance-power-freestyle",
+      "animation_name": "power-freestyle",
+      "animation_description": "A bold captured freestyle with broad silhouettes, strong weight shifts, and sustained motion.",
+      "animation_trigger_scenario": "Use for a longer celebration, energetic reveal, or showcase moment.",
+      "animation_type": "DANCE",
+      "procedural_preset": null,
+      "asset_paths": [
+        "animations/space-xr-power-freestyle-long.vrma"
+      ]
     },
     {
       "id": "talk-open-hand-explain",

@@ -10,7 +10,11 @@ import dawnEnvironment from '@pmndrs/assets/hdri/dawn.exr';
 import * as THREE from 'three';
 import { Avatar } from './Avatar';
 import type { PlayableAnimationType } from '../animation-catalog';
-import { calculateFullBodyFraming } from '../camera-framing';
+import {
+  calculateFullBodyFraming,
+  humanoidFramingBox,
+  type HumanoidFramingLandmarks,
+} from '../camera-framing';
 
 interface SceneProps {
   animation: PlayableAnimationType;
@@ -21,6 +25,7 @@ interface SceneProps {
   enablePan?: boolean;
   framingMargin?: number;
   groundShadow?: boolean;
+  mirror?: boolean;
   modelUrl: string;
   onAnimationComplete: () => void;
   playback: 'loop' | 'once';
@@ -50,14 +55,17 @@ function FullBodyCamera({
   characterSize,
   framingMargin,
   object,
+  framingBox,
 }: {
   characterSize: number;
+  framingBox: THREE.Box3 | null;
   framingMargin: number;
   object: THREE.Object3D | null;
 }) {
   const getThreeState = useThree((state) => state.get);
   const controlsReady = useThree((state) => Boolean(state.controls));
   const framedObject = useRef<THREE.Object3D | null>(null);
+  const framedBox = useRef<THREE.Box3 | null>(null);
   const framedCharacterSize = useRef<number | null>(null);
   const framedMargin = useRef<number | null>(null);
 
@@ -66,6 +74,7 @@ function FullBodyCamera({
     if (
       !object ||
       (framedObject.current === object &&
+        framedBox.current === framingBox &&
         framedCharacterSize.current === characterSize &&
         framedMargin.current === framingMargin) ||
       !(camera instanceof THREE.PerspectiveCamera) ||
@@ -75,7 +84,7 @@ function FullBodyCamera({
     }
 
     object.updateWorldMatrix(true, true);
-    const box = new THREE.Box3().setFromObject(object);
+    const box = framingBox ?? new THREE.Box3().setFromObject(object);
     if (box.isEmpty()) return;
 
     const framing = calculateFullBodyFraming(
@@ -83,7 +92,8 @@ function FullBodyCamera({
       camera.fov,
       camera.aspect,
       framingMargin,
-      1.5 * characterSize,
+      characterSize,
+      0.18,
     );
     camera.position.copy(framing.position);
     camera.near = Math.max(0.01, framing.distance / 100);
@@ -94,32 +104,57 @@ function FullBodyCamera({
     controls.target.copy(framing.target);
     controls.update();
     framedObject.current = object;
+    framedBox.current = framingBox;
     framedCharacterSize.current = characterSize;
     framedMargin.current = framingMargin;
-  }, [characterSize, controlsReady, framingMargin, getThreeState, object]);
+  }, [
+    characterSize,
+    controlsReady,
+    framingMargin,
+    framingBox,
+    getThreeState,
+    object,
+  ]);
 
   return null;
 }
 
 export function Scene(props: SceneProps) {
   const [avatarScene, setAvatarScene] = useState<THREE.Object3D | null>(null);
+  const [avatarFramingBox, setAvatarFramingBox] =
+    useState<THREE.Box3 | null>(null);
   const [grounding, setGrounding] = useState<Grounding | null>(null);
-  const handleAvatarReady = useCallback((scene: THREE.Object3D) => {
-    setAvatarScene(scene);
-    scene.updateWorldMatrix(true, true);
-    const box = new THREE.Box3().setFromObject(scene);
-    if (box.isEmpty()) {
-      setGrounding(null);
-      return;
-    }
-    const center = box.getCenter(new THREE.Vector3());
-    const size = box.getSize(new THREE.Vector3());
-    setGrounding({
-      far: Math.max(size.y, 1),
-      position: [center.x, box.min.y + 0.005, center.z],
-      scale: Math.max(size.x, size.z, 0.8) * 1.8,
-    });
-  }, []);
+  const handleAvatarReady = useCallback(
+    (
+      scene: THREE.Object3D,
+      landmarks: HumanoidFramingLandmarks | null,
+    ) => {
+      setAvatarScene(scene);
+      scene.updateWorldMatrix(true, true);
+      const sceneBox = new THREE.Box3().setFromObject(scene);
+      if (sceneBox.isEmpty()) {
+        setAvatarFramingBox(null);
+        setGrounding(null);
+        return;
+      }
+      const box = landmarks
+        ? humanoidFramingBox(sceneBox, landmarks)
+        : sceneBox;
+      setAvatarFramingBox(box);
+      const center = box.getCenter(new THREE.Vector3());
+      const size = box.getSize(new THREE.Vector3());
+      setGrounding({
+        far: Math.max(size.y, 1),
+        position: [
+          center.x,
+          (landmarks?.feet.y ?? box.min.y) + 0.005,
+          center.z,
+        ],
+        scale: Math.max(size.x, size.z, 0.8) * 1.8,
+      });
+    },
+    [],
+  );
 
   return (
     <Canvas
@@ -149,6 +184,7 @@ export function Scene(props: SceneProps) {
       <Environment files={dawnEnvironment} />
       <FullBodyCamera
         characterSize={props.characterSize}
+        framingBox={avatarFramingBox}
         framingMargin={props.framingMargin ?? 1.12}
         object={avatarScene}
       />

@@ -733,7 +733,7 @@ export function SettingsPage() {
         playProceduralAnimation(cycleCandidates[next]);
         return next;
       });
-    }, 3200);
+    }, 9500);
     return () => window.clearInterval(timer);
   }, [cycleActions, cycleCandidates, playProceduralAnimation]);
 

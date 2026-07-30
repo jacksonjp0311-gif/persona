@@ -45,6 +45,36 @@ describe('procedural animation library', () => {
     );
   });
 
+  it('keeps football actions out of the bilateral T-pose danger zone', () => {
+    const footballPresets = [
+      'quarterback-throw',
+      'receiver-catch',
+      'touchdown-signal',
+      'ball-spike',
+      'first-down',
+      'juke-left-right',
+      'stiff-arm',
+      'huddle-clap',
+      'victory-flex',
+      'griddy-celebration',
+    ] as const;
+
+    for (const preset of footballPresets) {
+      for (const progress of [0.15, 0.45, 0.75]) {
+        const pose = {
+          ...RELAXED_REST_POSE,
+          ...sampleProceduralPose(
+            preset,
+            PROCEDURAL_DURATIONS[preset] * progress,
+          ),
+        };
+        const leftDrop = Math.abs(pose.leftUpperArm?.[2] ?? 0);
+        const rightDrop = Math.abs(pose.rightUpperArm?.[2] ?? 0);
+        expect(Math.max(leftDrop, rightDrop), preset).toBeGreaterThan(0.5);
+      }
+    }
+  });
+
   it('gives every fallback action a visible pose instead of bind pose', () => {
     for (const preset of PROCEDURAL_PRESETS) {
       const duration = PROCEDURAL_DURATIONS[preset];

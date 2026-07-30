@@ -77,6 +77,10 @@ Extract and retime an authored clip from a humanoid GLB animation library:
 npm run motion:convert:glb -- library.glb Dance_Loop dance.vrma --speed 1.15
 ```
 
+Use `--start` and `--end` to remove authored bind-pose lead-ins. Add
+`--no-root-motion` for planted actions such as a throw when the source clip's
+hips translation would make a desktop avatar float.
+
 The converter can trim bind-pose lead-ins and tails before retiming. It maps
 recognized humanoid bones, normalizes root travel, resamples raw capture data to
 60 fps, keeps quaternion signs continuous, and applies zero-phase per-bone
@@ -95,8 +99,9 @@ still requires a contact detector plus an IK solve; do not disguise it by
 removing all root motion.
 
 `npm run motion:check` parses every packaged VRMA, verifies the required
-humanoid tracks and useful motion range, and rejects any frame where both upper
-arms collapse back toward the source T-pose.
+humanoid tracks and useful motion range, rejects any frame where both upper
+arms collapse back toward the source T-pose, and rejects vertical or horizontal
+root travel that can make a desktop avatar float or escape its window.
 
 ## MCP contract
 
