@@ -78,6 +78,7 @@ test("preload exposes only narrow Persona and settings IPC operations", async ()
   await settings.deleteModel("model-id");
   await settings.setDefaultModel("model-id");
   await settings.deployModel("model-id");
+  await settings.deployModels(["leader-id", "second-id"]);
   await settings.setCharacterSize(1.2);
   await settings.getMcpStatus();
   await settings.connectCodexCli();
@@ -115,6 +116,10 @@ test("preload exposes only narrow Persona and settings IPC operations", async ()
     ["persona:settings-delete-model", "model-id"],
     ["persona:settings-set-default-model", "model-id"],
     ["persona:settings-deploy-model", "model-id"],
+    [
+      "persona:settings-deploy-models",
+      ["leader-id", "second-id"],
+    ],
     ["persona:settings-set-character-size", 1.2],
     ["persona:settings-get-mcp-status"],
     ["persona:settings-connect-codex-cli"],

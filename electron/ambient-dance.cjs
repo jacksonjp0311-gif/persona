@@ -1,12 +1,17 @@
 "use strict";
 
+/** Start dancing almost immediately after deploy / resume. */
 const FIRST_AMBIENT_DANCE_DELAY_MS = {
-  min: 8_000,
-  max: 16_000,
+  min: 120,
+  max: 500,
 };
+/**
+ * While a dance is already looping, rotate to another style on this window.
+ * Gaps between styles are zero because ambient dances loop continuously.
+ */
 const NEXT_AMBIENT_DANCE_DELAY_MS = {
-  min: 24_000,
-  max: 50_000,
+  min: 14_000,
+  max: 24_000,
 };
 
 function ambientDanceDelay(firstDance, random = Math.random) {
@@ -17,11 +22,19 @@ function ambientDanceDelay(firstDance, random = Math.random) {
   return Math.round(range.min + unit * (range.max - range.min));
 }
 
+/**
+ * Keep ambient motion going unless the character is actively speaking.
+ * Listening / idle / inactive should all dance so the desktop avatar never
+ * freezes while Codex is attached but quiet.
+ */
 function canPlayAmbientDance(voiceState) {
+  if (voiceState == null) return true;
+  if (voiceState.activity === "speaking") return false;
   return (
-    voiceState == null ||
     voiceState.phase === "inactive" ||
-    (voiceState.phase === "active" && voiceState.activity === "idle")
+    voiceState.phase === "starting" ||
+    voiceState.phase === "active" ||
+    voiceState.phase === "stopping"
   );
 }
 
@@ -29,7 +42,9 @@ function ambientDanceCandidates(animations) {
   return animations.filter(
     (animation) =>
       animation.animation_type === "DANCE" &&
-      animation.asset_urls.length > 0,
+      ((Array.isArray(animation.asset_urls) &&
+        animation.asset_urls.length > 0) ||
+        animation.procedural_preset != null),
   );
 }
 

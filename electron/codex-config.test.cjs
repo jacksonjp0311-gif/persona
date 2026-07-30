@@ -49,4 +49,30 @@ test("writes the supported Codex config under the selected home", () => {
   }
 });
 
+test("optionally installs the trusted local speech hook with the MCP connection", () => {
+  const temporaryHome = fs.mkdtempSync(path.join(os.tmpdir(), "persona-codex-"));
+  try {
+    const tokenFilePath = path.join(temporaryHome, "codex-turn-token");
+    fs.writeFileSync(tokenFilePath, `${"ab".repeat(32)}\n`, { mode: 0o600 });
+    const result = connectCodexCli({
+      homeDirectory: temporaryHome,
+      serverUrl: SERVER_URL,
+      speechHook: {
+        endpoint: "http://127.0.0.1:44832/codex-turn",
+        tokenFilePath,
+      },
+    });
+
+    assert.equal(result.status, "connected");
+    assert.equal(result.speech_hook.status, "installed");
+    assert.equal(fs.existsSync(result.speech_hook.hooks_path), true);
+    assert.match(
+      fs.readFileSync(result.speech_hook.hooks_path, "utf8"),
+      /persona-codex-speech-v1/,
+    );
+  } finally {
+    fs.rmSync(temporaryHome, { recursive: true, force: true });
+  }
+});
+
 const PERSONA_CONFIG = `[mcp_servers.persona]\nurl = "${SERVER_URL}"\n`;

@@ -54,8 +54,10 @@ const SYSTEM_ACTIONS: PersonaAnimationSettings[] = [
 ];
 
 export const SETTINGS_FALLBACK: PersonaSettingsSnapshot = {
-  schema_version: 3,
+  schema_version: 4,
   default_model_id: null,
+  deployed_model_ids: [],
+  deployment_mode: 'solo',
   character_size: 1,
   packaged_animation_change_count: 0,
   models: [],
@@ -108,6 +110,8 @@ export async function loadPackagedSettingsFallback(): Promise<PersonaSettingsSna
   return {
     ...SETTINGS_FALLBACK,
     default_model_id: defaultModelId,
+    deployed_model_ids: defaultModelId == null ? [] : [defaultModelId],
+    deployment_mode: 'solo',
     models: library.models.map((model) => ({
       id: model.id,
       model_name: model.model_name,

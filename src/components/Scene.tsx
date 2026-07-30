@@ -1,4 +1,10 @@
-import { useCallback, useLayoutEffect, useRef, useState } from 'react';
+import {
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { Canvas } from '@react-three/fiber';
 import { useThree } from '@react-three/fiber';
 import {
@@ -15,6 +21,14 @@ import {
   humanoidFramingBox,
   type HumanoidFramingLandmarks,
 } from '../camera-framing';
+import { chooseSynchronizedAnimationUrls } from '../crew-animation';
+import { createCrewLayout } from '../crew-layout';
+import { MAX_CREW_SIZE } from '../crew-roster';
+
+export interface SceneCharacter {
+  id: string;
+  modelUrl: string;
+}
 
 interface SceneProps {
   animation: PlayableAnimationType;
@@ -26,7 +40,8 @@ interface SceneProps {
   framingMargin?: number;
   groundShadow?: boolean;
   mirror?: boolean;
-  modelUrl: string;
+  characters?: readonly SceneCharacter[];
+  modelUrl?: string;
   onAnimationComplete: () => void;
   playback: 'loop' | 'once';
   proceduralPreset?: string | null;
@@ -120,40 +135,128 @@ function FullBodyCamera({
 }
 
 export function Scene(props: SceneProps) {
-  const [avatarScene, setAvatarScene] = useState<THREE.Object3D | null>(null);
+  const characters = useMemo(
+    () =>
+      (
+        props.characters ??
+        (props.modelUrl
+          ? [{ id: props.modelUrl, modelUrl: props.modelUrl }]
+          : [])
+      ).slice(0, MAX_CREW_SIZE),
+    [props.characters, props.modelUrl],
+  );
+  const characterKey = characters
+    .map((character) => character.id)
+    .join('|');
+  const layout = useMemo(
+    () =>
+      characters.length > 0 ? createCrewLayout(characters.length) : [],
+    [characters.length],
+  );
+  const animationSelectionKey = `${props.animation}:${props.animationRequest}`;
+  const synchronizedAnimationUrls = useMemo(
+    () => {
+      void animationSelectionKey;
+      return chooseSynchronizedAnimationUrls(props.animationUrls ?? []);
+    },
+    [animationSelectionKey, props.animationUrls],
+  );
+  const [crewRoot, setCrewRoot] = useState<THREE.Group | null>(null);
   const [avatarFramingBox, setAvatarFramingBox] =
     useState<THREE.Box3 | null>(null);
   const [grounding, setGrounding] = useState<Grounding | null>(null);
+  const readyAvatars = useRef<{
+    avatars: Map<string, { box: THREE.Box3; feetY: number }>;
+    key: string;
+  }>({
+    avatars: new Map(),
+    key: '',
+  });
+
+  const completionKey = `${characterKey}:${props.animation}:${props.animationRequest}:${synchronizedAnimationUrls.join('|')}`;
+  const completionState = useRef({
+    completed: new Set<string>(),
+    key: '',
+    notified: false,
+  });
+  const onAnimationComplete = props.onAnimationComplete;
+
+  const handleAnimationComplete = useCallback(
+    (characterId: string) => {
+      if (completionState.current.key !== completionKey) {
+        completionState.current = {
+          completed: new Set<string>(),
+          key: completionKey,
+          notified: false,
+        };
+      }
+      const state = completionState.current;
+      if (state.notified) return;
+      state.completed.add(characterId);
+      if (
+        characters.length > 0 &&
+        characters.every((character) =>
+          state.completed.has(character.id),
+        )
+      ) {
+        state.notified = true;
+        onAnimationComplete();
+      }
+    },
+    [
+      characters,
+      completionKey,
+      onAnimationComplete,
+    ],
+  );
+
   const handleAvatarReady = useCallback(
     (
+      characterId: string,
       scene: THREE.Object3D,
       landmarks: HumanoidFramingLandmarks | null,
     ) => {
-      setAvatarScene(scene);
+      if (readyAvatars.current.key !== characterKey) {
+        readyAvatars.current = {
+          avatars: new Map(),
+          key: characterKey,
+        };
+      }
+      const roster = readyAvatars.current.avatars;
       scene.updateWorldMatrix(true, true);
       const sceneBox = new THREE.Box3().setFromObject(scene);
       if (sceneBox.isEmpty()) {
-        setAvatarFramingBox(null);
-        setGrounding(null);
+        roster.delete(characterId);
         return;
       }
       const box = landmarks
         ? humanoidFramingBox(sceneBox, landmarks)
         : sceneBox;
-      setAvatarFramingBox(box);
-      const center = box.getCenter(new THREE.Vector3());
-      const size = box.getSize(new THREE.Vector3());
+      roster.set(characterId, {
+        box,
+        feetY: landmarks?.feet.y ?? box.min.y,
+      });
+      const combinedBox = new THREE.Box3();
+      let feetY = Number.POSITIVE_INFINITY;
+      for (const ready of roster.values()) {
+        combinedBox.union(ready.box);
+        feetY = Math.min(feetY, ready.feetY);
+      }
+      if (combinedBox.isEmpty()) return;
+      setAvatarFramingBox(combinedBox);
+      const center = combinedBox.getCenter(new THREE.Vector3());
+      const size = combinedBox.getSize(new THREE.Vector3());
       setGrounding({
         far: Math.max(size.y, 1),
         position: [
           center.x,
-          (landmarks?.feet.y ?? box.min.y) + 0.005,
+          feetY + 0.005,
           center.z,
         ],
         scale: Math.max(size.x, size.z, 0.8) * 1.8,
       });
     },
-    [],
+    [characterKey],
   );
 
   return (
@@ -186,16 +289,36 @@ export function Scene(props: SceneProps) {
         characterSize={props.characterSize}
         framingBox={avatarFramingBox}
         framingMargin={props.framingMargin ?? 1.12}
-        object={avatarScene}
+        object={crewRoot}
       />
-      <Avatar {...props} onReady={handleAvatarReady} />
+      <group ref={setCrewRoot}>
+        {characters.map((character, index) => (
+          <Avatar
+            animation={props.animation}
+            animationRequest={props.animationRequest}
+            animationUrls={synchronizedAnimationUrls}
+            audioLevel={index === 0 ? props.audioLevel : 0}
+            characterId={character.id}
+            key={character.id}
+            mirror={props.mirror}
+            modelUrl={character.modelUrl}
+            onAnimationComplete={handleAnimationComplete}
+            onReady={handleAvatarReady}
+            playback={props.playback}
+            position={layout[index]?.position}
+            proceduralPreset={props.proceduralPreset}
+            scale={layout[index]?.scale}
+            speaking={index === 0 && props.speaking}
+          />
+        ))}
+      </group>
       {props.groundShadow && grounding && (
         <ContactShadows
           blur={2.4}
           color="#050506"
           far={grounding.far}
           frames={1}
-          key={`${props.modelUrl}-ground-shadow`}
+          key={`${characterKey}-ground-shadow`}
           opacity={0.42}
           position={grounding.position}
           resolution={256}

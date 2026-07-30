@@ -25,6 +25,12 @@ import {
   THEME_OPTIONS,
   type ThemePreference,
 } from '../theme';
+import { MAX_CREW_SIZE } from '../crew-roster';
+import {
+  randomCrew,
+  sameCrew,
+  toggleCrewMember,
+} from '../crew-selection';
 
 type SettingsSection = 'models' | 'animations' | 'appearance' | 'mcp';
 interface ConfirmationRequest {
@@ -184,6 +190,13 @@ export function SettingsPage() {
   const [selectedModelId, setSelectedModelId] = useState(
     SETTINGS_FALLBACK.default_model_id,
   );
+  const crewSelectionDirty = useRef(false);
+  const [deploymentMode, setDeploymentMode] = useState<'solo' | 'crew'>(
+    SETTINGS_FALLBACK.deployment_mode,
+  );
+  const [crewModelIds, setCrewModelIds] = useState<string[]>(
+    SETTINGS_FALLBACK.deployed_model_ids,
+  );
   const [wheelPage, setWheelPage] = useState(0);
   const [previewAnimation, setPreviewAnimation] =
     useState<PersonaAnimationSettings | null>(null);
@@ -224,6 +237,21 @@ export function SettingsPage() {
   const settingsContentRef = useRef<HTMLElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
 
+  const syncDeploymentSelection = useCallback(
+    (snapshot: PersonaSettingsSnapshot) => {
+      if (crewSelectionDirty.current) return;
+      setDeploymentMode(snapshot.deployment_mode);
+      setCrewModelIds(
+        snapshot.deployed_model_ids.length > 0
+          ? snapshot.deployed_model_ids
+          : snapshot.default_model_id
+            ? [snapshot.default_model_id]
+            : [],
+      );
+    },
+    [],
+  );
+
   useEffect(() => {
     document.title = 'Persona Settings';
     if (!bridge) {
@@ -231,6 +259,7 @@ export function SettingsPage() {
         .then((snapshot) => {
           setSettings(snapshot);
           setSelectedModelId(snapshot.default_model_id);
+          syncDeploymentSelection(snapshot);
         })
         .catch((error: unknown) => setNotice(errorMessage(error)));
       return;
@@ -240,10 +269,14 @@ export function SettingsPage() {
       .then((snapshot) => {
         setSettings(snapshot);
         setSelectedModelId(snapshot.default_model_id);
+        syncDeploymentSelection(snapshot);
       })
       .catch((error: unknown) => setNotice(errorMessage(error)));
-    return bridge.subscribe(setSettings);
-  }, [bridge]);
+    return bridge.subscribe((snapshot) => {
+      setSettings(snapshot);
+      syncDeploymentSelection(snapshot);
+    });
+  }, [bridge, syncDeploymentSelection]);
 
   useEffect(() => {
     setPreviewAnimation((current) => {
@@ -273,6 +306,37 @@ export function SettingsPage() {
     settings.models.find((model) => model.id === selectedModelId) ??
     settings.models.find((model) => model.id === settings.default_model_id) ??
     settings.models[0];
+  const crewModels = useMemo(
+    () =>
+      crewModelIds
+        .map((modelId) =>
+          settings.models.find((model) => model.id === modelId),
+        )
+        .filter((model): model is PersonaModelSettings => model != null),
+    [crewModelIds, settings.models],
+  );
+  const previewModels = useMemo(
+    () =>
+      deploymentMode === 'crew' && crewModels.length > 0
+        ? crewModels
+        : selectedModel
+          ? [selectedModel]
+          : [],
+    [crewModels, deploymentMode, selectedModel],
+  );
+  const previewCharacters = useMemo(
+    () =>
+      previewModels.map((model) => ({
+        id: model.id,
+        modelUrl: model.asset_url,
+      })),
+    [previewModels],
+  );
+  const deploymentIsActive =
+    settings.deployment_mode === deploymentMode &&
+    (deploymentMode === 'crew'
+      ? sameCrew(settings.deployed_model_ids, crewModelIds)
+      : selectedModel?.id === settings.default_model_id);
   const wheelPageCount = Math.max(
     1,
     Math.ceil(settings.models.length / WHEEL_PAGE_SIZE),
@@ -286,12 +350,12 @@ export function SettingsPage() {
   );
 
   useEffect(() => {
-    if (activeModelIndex >= 0) {
+    if (deploymentMode === 'solo' && activeModelIndex >= 0) {
       setWheelPage(Math.floor(activeModelIndex / WHEEL_PAGE_SIZE));
     } else {
       setWheelPage((page) => Math.min(page, wheelPageCount - 1));
     }
-  }, [activeModelIndex, wheelPageCount]);
+  }, [activeModelIndex, deploymentMode, wheelPageCount]);
 
   const customModelCount = settings.models.filter(
     (model) => model.origin === 'user',
@@ -533,7 +597,85 @@ export function SettingsPage() {
       () => bridge.deployModel(modelId),
       'Character deployed and opened on your desktop.',
     );
-    if (snapshot) setSelectedModelId(modelId);
+    if (!snapshot) return;
+    crewSelectionDirty.current = false;
+    setSelectedModelId(modelId);
+    setDeploymentMode('solo');
+    setCrewModelIds([modelId]);
+  };
+
+  const deploySelection = async () => {
+    if (!bridge) return;
+    if (deploymentMode === 'crew') {
+      const modelIds =
+        crewModelIds.length > 0
+          ? crewModelIds
+          : selectedModel
+            ? [selectedModel.id]
+            : [];
+      if (modelIds.length === 0) return;
+      const snapshot = await run(
+        () => bridge.deployModels(modelIds),
+        modelIds.length > 1
+          ? `Crew of ${modelIds.length} deployed and opened on your desktop.`
+          : 'Character deployed and opened on your desktop.',
+      );
+      if (!snapshot) return;
+      crewSelectionDirty.current = false;
+      setSelectedModelId(snapshot.default_model_id);
+      setDeploymentMode(snapshot.deployment_mode);
+      setCrewModelIds(snapshot.deployed_model_ids);
+      return;
+    }
+    if (!selectedModel) return;
+    await deployModel(selectedModel.id);
+  };
+
+  const chooseModel = (modelId: string) => {
+    setSelectedModelId(modelId);
+    if (deploymentMode === 'crew') {
+      crewSelectionDirty.current = true;
+      setCrewModelIds((current) => {
+        const next = toggleCrewMember(current, modelId);
+        return next.length > 0 ? next : [modelId];
+      });
+      return;
+    }
+    setCrewModelIds([modelId]);
+    if (modelId !== settings.default_model_id) {
+      void setDefaultModel(modelId);
+    }
+  };
+
+  const switchDeploymentMode = (mode: 'solo' | 'crew') => {
+    crewSelectionDirty.current = true;
+    setDeploymentMode(mode);
+    if (mode === 'solo') {
+      const leader =
+        selectedModelId ??
+        crewModelIds[0] ??
+        settings.default_model_id ??
+        settings.models[0]?.id ??
+        null;
+      setCrewModelIds(leader ? [leader] : []);
+      if (leader) setSelectedModelId(leader);
+      return;
+    }
+    if (crewModelIds.length === 0 && selectedModelId) {
+      setCrewModelIds([selectedModelId]);
+    }
+  };
+
+  const pickRandomCrew = () => {
+    if (settings.models.length === 0) return;
+    crewSelectionDirty.current = true;
+    setDeploymentMode('crew');
+    const next = randomCrew(
+      settings.models.map((model) => model.id),
+      Math.min(MAX_CREW_SIZE, settings.models.length),
+    );
+    setCrewModelIds(next);
+    if (next[0]) setSelectedModelId(next[0]);
   };
 
   const connectToCodexCli = async () => {
@@ -858,7 +1000,11 @@ export function SettingsPage() {
                 <div className="panel-heading">
                   <div>
                     <h2>Character wheel</h2>
-                    <p>Choose a character to make it active immediately.</p>
+                    <p>
+                      {deploymentMode === 'crew'
+                        ? `Toggle up to ${MAX_CREW_SIZE} characters. First pick leads the crew.`
+                        : 'Choose a character, then deploy it to your desktop.'}
+                    </p>
                   </div>
                   <div className="wheel-toolbar">
                     <button
@@ -892,6 +1038,34 @@ export function SettingsPage() {
                     </button>
                   </div>
                 </div>
+                <div className="deployment-mode-bar" role="group" aria-label="Deployment mode">
+                  <button
+                    className={deploymentMode === 'solo' ? 'active' : ''}
+                    onClick={() => switchDeploymentMode('solo')}
+                    type="button"
+                  >
+                    Solo
+                  </button>
+                  <button
+                    className={deploymentMode === 'crew' ? 'active' : ''}
+                    onClick={() => switchDeploymentMode('crew')}
+                    type="button"
+                  >
+                    Crew
+                  </button>
+                  <button
+                    disabled={settings.models.length === 0}
+                    onClick={pickRandomCrew}
+                    type="button"
+                  >
+                    Random crew
+                  </button>
+                  <span className="wheel-count">
+                    {deploymentMode === 'crew'
+                      ? `${crewModelIds.length}/${MAX_CREW_SIZE} selected`
+                      : '1 character'}
+                  </span>
+                </div>
                 {settings.models.length === 0 ? (
                   <div className="empty-library">
                     <strong>Your wheel is empty</strong>
@@ -906,24 +1080,31 @@ export function SettingsPage() {
                     <div className="model-wheel-rings" aria-hidden="true" />
                     {wheelModels.map((model, index) => {
                       const angle = (index / wheelModels.length) * 360;
-                      const isActive =
-                        model.id === settings.default_model_id;
-                      const isSelected = model.id === selectedModel?.id;
+                      const crewIndex = crewModelIds.indexOf(model.id);
+                      const isDeployed =
+                        settings.deployment_mode === 'crew'
+                          ? settings.deployed_model_ids.includes(model.id)
+                          : model.id === settings.default_model_id;
+                      const isSelected =
+                        deploymentMode === 'crew'
+                          ? crewIndex >= 0
+                          : model.id === selectedModel?.id;
                       return (
                         <button
-                          aria-label={`Choose ${model.model_name}`}
-                          aria-pressed={isActive}
+                          aria-label={
+                            deploymentMode === 'crew'
+                              ? crewIndex >= 0
+                                ? `Remove ${model.model_name} from crew`
+                                : `Add ${model.model_name} to crew`
+                              : `Choose ${model.model_name}`
+                          }
+                          aria-pressed={isSelected}
                           className={`model-wheel-item ${
-                            isActive ? 'active' : ''
+                            isDeployed ? 'active' : ''
                           } ${isSelected ? 'selected' : ''}`}
                           disabled={busy || !bridge}
                           key={model.id}
-                          onClick={() => {
-                            setSelectedModelId(model.id);
-                            if (!isActive) {
-                              void setDefaultModel(model.id);
-                            }
-                          }}
+                          onClick={() => chooseModel(model.id)}
                           style={
                             {
                               '--wheel-transform': `translate(-50%, -50%) rotate(${angle}deg) translateY(-154px) rotate(${-angle}deg)`,
@@ -932,6 +1113,11 @@ export function SettingsPage() {
                           title={model.model_name}
                           type="button"
                         >
+                          {crewIndex >= 0 && deploymentMode === 'crew' && (
+                            <span className="model-wheel-rank" aria-hidden="true">
+                              {crewIndex + 1}
+                            </span>
+                          )}
                           <span className="model-wheel-avatar" aria-hidden="true">
                             {modelInitials(model.model_name)}
                           </span>
@@ -943,11 +1129,21 @@ export function SettingsPage() {
                     })}
                     <div className="model-wheel-core" aria-live="polite">
                       <img src="./assets/persona-icon.png" alt="" />
-                      <small>Active character</small>
+                      <small>
+                        {deploymentMode === 'crew'
+                          ? 'Crew selection'
+                          : 'Active character'}
+                      </small>
                       <strong>
-                        {settings.models.find(
-                          (model) => model.id === settings.default_model_id,
-                        )?.model_name ?? 'Choose one'}
+                        {deploymentMode === 'crew'
+                          ? crewModels.length > 0
+                            ? crewModels
+                                .map((model) => model.model_name)
+                                .join(' · ')
+                            : 'Pick up to 4'
+                          : settings.models.find(
+                              (model) => model.id === settings.default_model_id,
+                            )?.model_name ?? 'Choose one'}
                       </strong>
                     </div>
                   </div>
@@ -972,8 +1168,12 @@ export function SettingsPage() {
                     </div>
                   )}
                   {settings.models.map((model) => {
-                    const selected = model.id === selectedModel?.id;
+                    const selected =
+                      deploymentMode === 'crew'
+                        ? crewModelIds.includes(model.id)
+                        : model.id === selectedModel?.id;
                     const isDefault = model.id === settings.default_model_id;
+                    const crewIndex = crewModelIds.indexOf(model.id);
                     return (
                       <article
                         className={`asset-card ${selected ? 'selected' : ''}`}
@@ -981,10 +1181,14 @@ export function SettingsPage() {
                       >
                         <button
                           className="asset-card-main"
-                          onClick={() => setSelectedModelId(model.id)}
+                          onClick={() => chooseModel(model.id)}
                           type="button"
                         >
-                          <span className="asset-icon">VRM</span>
+                          <span className="asset-icon">
+                            {deploymentMode === 'crew' && crewIndex >= 0
+                              ? crewIndex + 1
+                              : 'VRM'}
+                          </span>
                           <span>
                             <strong>{model.model_name}</strong>
                             <small>
@@ -996,7 +1200,11 @@ export function SettingsPage() {
                         </button>
                         <div className="asset-card-footer">
                           {isDefault ? (
-                            <span className="default-badge">Default</span>
+                            <span className="default-badge">
+                              {settings.deployment_mode === 'crew'
+                                ? 'Leader'
+                                : 'Default'}
+                            </span>
                           ) : (
                             <button
                               disabled={busy || !bridge}
@@ -1008,7 +1216,16 @@ export function SettingsPage() {
                           )}
                           <div className="asset-card-actions">
                             <button
-                              onClick={() => setSelectedModelId(model.id)}
+                              onClick={() => {
+                                if (deploymentMode === 'crew') {
+                                  setSelectedModelId(model.id);
+                                  if (!crewModelIds.includes(model.id)) {
+                                    chooseModel(model.id);
+                                  }
+                                } else {
+                                  setSelectedModelId(model.id);
+                                }
+                              }}
                               type="button"
                             >
                               Preview
@@ -1783,7 +2000,11 @@ export function SettingsPage() {
             <div className="preview-header">
               <div>
                 <span className="eyebrow">Live preview</span>
-                <strong>{selectedModel?.model_name ?? 'Persona'}</strong>
+                <strong>
+                  {deploymentMode === 'crew' && previewModels.length > 1
+                    ? `${previewModels.length}-character crew`
+                    : selectedModel?.model_name ?? 'Persona'}
+                </strong>
               </div>
               <span className="preview-live">
                 <i />
@@ -1791,7 +2012,7 @@ export function SettingsPage() {
               </span>
             </div>
             <div className="preview-stage" data-testid="settings-preview">
-              {selectedModel && (
+              {previewCharacters.length > 0 && (
                 <Scene
                   animation={previewType}
                   animationRequest={previewRequest}
@@ -1801,7 +2022,7 @@ export function SettingsPage() {
                   enablePan={false}
                   framingMargin={1.22}
                   groundShadow
-                  modelUrl={selectedModel.asset_url}
+                  characters={previewCharacters}
                   onAnimationComplete={() => {
                     setPreviewAnimation(null);
                     setPreviewClipId(null);
@@ -1817,30 +2038,40 @@ export function SettingsPage() {
             </div>
             <button
               className={`deploy-character-button ${
-                selectedModel?.id === settings.default_model_id
-                  ? 'deployed'
-                  : ''
+                deploymentIsActive ? 'deployed' : ''
               }`}
-              disabled={busy || !bridge || !selectedModel}
+              disabled={
+                busy ||
+                !bridge ||
+                (deploymentMode === 'crew'
+                  ? crewModelIds.length === 0
+                  : !selectedModel)
+              }
               onClick={() => {
-                if (selectedModel) {
-                  void deployModel(selectedModel.id);
-                }
+                void deploySelection();
               }}
               type="button"
             >
               <span className="deploy-character-icon" aria-hidden="true">
-                {selectedModel?.id === settings.default_model_id ? '✓' : '↗'}
+                {deploymentIsActive ? '✓' : '↗'}
               </span>
               <span>
-                <strong>Deploy character</strong>
+                <strong>
+                  {deploymentMode === 'crew' && crewModelIds.length > 1
+                    ? 'Deploy crew'
+                    : 'Deploy character'}
+                </strong>
                 <small>
-                  {selectedModel?.id === settings.default_model_id
-                    ? 'Open the active character on your desktop'
-                    : `Switch Persona to ${selectedModel?.model_name ?? 'this model'}`}
+                  {deploymentIsActive
+                    ? deploymentMode === 'crew' && crewModelIds.length > 1
+                      ? 'Open the active crew on your desktop'
+                      : 'Open the active character on your desktop'
+                    : deploymentMode === 'crew' && crewModelIds.length > 1
+                      ? `Deploy ${crewModelIds.length} characters to Persona`
+                      : `Switch Persona to ${selectedModel?.model_name ?? 'this model'}`}
                 </small>
               </span>
-              {selectedModel?.id === settings.default_model_id && (
+              {deploymentIsActive && (
                 <span className="deploy-character-badge">Active</span>
               )}
             </button>

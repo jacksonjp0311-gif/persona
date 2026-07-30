@@ -7,19 +7,24 @@ import { useAmplitudeLipSync } from '../hooks/useAmplitudeLipSync';
 import { useBlink } from '../hooks/useBlink';
 import type { PlayableAnimationType } from '../animation-catalog';
 import type { HumanoidFramingLandmarks } from '../camera-framing';
+import type { Vector3Tuple } from 'three';
 
 interface AvatarProps {
   animation: PlayableAnimationType;
   animationRequest: number;
   animationUrls?: readonly string[];
   audioLevel: number;
+  characterId: string;
   mirror?: boolean;
   modelUrl: string;
-  onAnimationComplete: () => void;
+  onAnimationComplete: (characterId: string) => void;
   playback: 'loop' | 'once';
+  position?: Vector3Tuple;
   proceduralPreset?: string | null;
+  scale?: number;
   speaking: boolean;
   onReady?: (
+    characterId: string,
     scene: THREE.Object3D,
     landmarks: HumanoidFramingLandmarks | null,
   ) => void;
@@ -30,11 +35,14 @@ function AvatarModel({
   animationRequest,
   animationUrls,
   audioLevel,
+  characterId,
   mirror,
   modelUrl,
   onAnimationComplete,
   playback,
+  position,
   proceduralPreset,
+  scale = 1,
   speaking,
   onReady,
 }: AvatarProps) {
@@ -46,7 +54,7 @@ function AvatarModel({
   useEffect(() => {
     void play(animation, {
       animationUrls,
-      onComplete: onAnimationComplete,
+      onComplete: () => onAnimationComplete(characterId),
       playback,
       proceduralPreset,
     });
@@ -54,6 +62,7 @@ function AvatarModel({
     animation,
     animationRequest,
     animationUrls,
+    characterId,
     onAnimationComplete,
     play,
     playback,
@@ -82,10 +91,11 @@ function AvatarModel({
             .multiplyScalar(1 / feet.length)
         : null;
     onReady?.(
+      characterId,
       vrm.scene,
       head && footCenter ? { feet: footCenter, head } : null,
     );
-  }, [onReady, vrm]);
+  }, [characterId, onReady, vrm]);
 
   useFrame((_, delta) => {
     if (!vrm) return;
@@ -96,8 +106,10 @@ function AvatarModel({
   });
 
   return vrm ? (
-    <group scale={[mirror ? -1 : 1, 1, 1]}>
-      <primitive object={vrm.scene} />
+    <group position={position} scale={scale}>
+      <group scale={[mirror ? -1 : 1, 1, 1]}>
+        <primitive object={vrm.scene} />
+      </group>
     </group>
   ) : null;
 }

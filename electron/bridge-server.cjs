@@ -2,6 +2,11 @@
 
 const http = require("node:http");
 const { ANIMATION_NAME_PATTERN } = require("./library-catalog.cjs");
+const {
+  CODEX_TURN_PATH,
+  normalizeCodexTurnBody,
+  tokenMatches,
+} = require("./codex-turn.cjs");
 
 const DEFAULT_PORT = 47831;
 const MAX_BODY_BYTES = 64 * 1024;
@@ -107,6 +112,8 @@ function createBridgeServer({
   host = "127.0.0.1",
   port = DEFAULT_PORT,
   onEvent,
+  onCodexTurn = null,
+  codexTurnToken = null,
   mcpHandler = null,
 }) {
   let lastStateEvent = null;
@@ -121,6 +128,53 @@ function createBridgeServer({
     if (request.method === "GET" && request.url === "/health") {
       response.writeHead(200, { "content-type": "application/json" });
       response.end(JSON.stringify({ ok: true, lastState: lastStateEvent?.state ?? null }));
+      return;
+    }
+
+    if (request.url === CODEX_TURN_PATH) {
+      if (onCodexTurn == null || codexTurnToken == null) {
+        response.writeHead(404);
+        response.end();
+        return;
+      }
+      if (request.method !== "POST") {
+        response.writeHead(405, { allow: "POST" });
+        response.end();
+        return;
+      }
+      // Codex command hooks are native clients and do not send Origin. Refuse
+      // browser-originated requests even when the browser is itself local.
+      if (
+        origin != null ||
+        !tokenMatches(request.headers.authorization, codexTurnToken)
+      ) {
+        response.writeHead(origin != null ? 403 : 401);
+        response.end();
+        return;
+      }
+
+      void readJsonBody(request)
+        .then(async (body) => {
+          const turn = normalizeCodexTurnBody(body);
+          if (turn == null) {
+            response.writeHead(422);
+            response.end();
+            return;
+          }
+          const accepted = await onCodexTurn(turn);
+          if (accepted === false) {
+            response.writeHead(422);
+            response.end();
+            return;
+          }
+          response.writeHead(202, { "content-type": "application/json" });
+          response.end('{"accepted":true}');
+        })
+        .catch((error) => {
+          if (response.headersSent) return;
+          response.writeHead(error?.code === "BODY_TOO_LARGE" ? 413 : 400);
+          response.end();
+        });
       return;
     }
 

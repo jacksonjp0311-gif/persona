@@ -10,7 +10,7 @@ const {
   readPackagedLibrary,
 } = require("./library-catalog.cjs");
 
-const SETTINGS_SCHEMA_VERSION = 3;
+const SETTINGS_SCHEMA_VERSION = 4;
 const DEFAULT_PACKAGED_LIBRARY_PATH = path.join(
   __dirname,
   "..",
@@ -24,13 +24,17 @@ const MAX_ASSET_BYTES = 200 * 1024 * 1024;
 const MAX_CUSTOM_MODELS = 50;
 const MAX_CUSTOM_ANIMATIONS = 100;
 const MAX_CUSTOM_ANIMATION_CLIPS = 300;
+const MAX_DEPLOYED_MODELS = 4;
 const ASSET_ID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function defaultState(packagedLibrary) {
+  const defaultModelId = packagedLibrary.default_model_id;
   return {
     schema_version: SETTINGS_SCHEMA_VERSION,
-    default_model_id: packagedLibrary.default_model_id,
+    default_model_id: defaultModelId,
+    deployed_model_ids: defaultModelId == null ? [] : [defaultModelId],
+    deployment_mode: "solo",
     character_size: 1,
     models: [],
     animations: [],
@@ -38,6 +42,25 @@ function defaultState(packagedLibrary) {
     packaged_animation_overrides: {},
     hidden_packaged_animation_ids: [],
   };
+}
+
+function sanitizeDeployedModelIds(modelIds) {
+  if (!Array.isArray(modelIds)) return [];
+  const seen = new Set();
+  const sanitized = [];
+  for (const modelId of modelIds) {
+    if (
+      typeof modelId !== "string" ||
+      modelId.length === 0 ||
+      seen.has(modelId)
+    ) {
+      continue;
+    }
+    seen.add(modelId);
+    sanitized.push(modelId);
+    if (sanitized.length === MAX_DEPLOYED_MODELS) break;
+  }
+  return sanitized;
 }
 
 function singleLine(value, field, maxLength) {
@@ -257,23 +280,35 @@ function safeReadState(settingsPath, packagedLibrary) {
   const fallback = defaultState(packagedLibrary);
   try {
     const parsed = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
-    if (![1, 2, SETTINGS_SCHEMA_VERSION].includes(parsed?.schema_version)) {
+    if (![1, 2, 3, SETTINGS_SCHEMA_VERSION].includes(parsed?.schema_version)) {
       return { migrated: false, state: fallback };
     }
     const { hidden, overrides } = packagedUserLayers(parsed, packagedLibrary);
+    const parsedDefaultModelId =
+      typeof parsed.default_model_id === "string"
+        ? parsed.default_model_id
+        : fallback.default_model_id;
+    const deployedModelIds =
+      parsed.schema_version >= 4
+        ? sanitizeDeployedModelIds(parsed.deployed_model_ids)
+        : parsedDefaultModelId == null
+          ? []
+          : [parsedDefaultModelId];
     const common = {
       ...fallback,
-      default_model_id:
-        typeof parsed.default_model_id === "string"
-          ? parsed.default_model_id
-          : fallback.default_model_id,
+      default_model_id: parsedDefaultModelId,
+      deployed_model_ids: deployedModelIds,
+      deployment_mode:
+        parsed.deployment_mode === "crew" && deployedModelIds.length > 1
+          ? "crew"
+          : "solo",
       character_size: parsed.character_size,
       models: sanitizeModels(parsed.models),
       packaged_animation_overrides: overrides,
       hidden_packaged_animation_ids: hidden,
     };
 
-    if (parsed.schema_version !== SETTINGS_SCHEMA_VERSION) {
+    if (parsed.schema_version <= 2) {
       const migrated = migrateLegacyAnimations(
         parsed.animations,
         packagedLibrary,
@@ -294,7 +329,7 @@ function safeReadState(settingsPath, packagedLibrary) {
       ...animations.map((animation) => animation.id),
     ]);
     return {
-      migrated: false,
+      migrated: parsed.schema_version !== SETTINGS_SCHEMA_VERSION,
       state: {
         ...common,
         animations,
@@ -444,11 +479,24 @@ function createSettingsStore({
 
   function getSnapshot() {
     const models = availableModels();
-    const defaultModel = models.some(
+    const availableModelIds = new Set(models.map((model) => model.id));
+    const configuredDefaultModel = models.some(
       (model) => model.id === state.default_model_id,
     )
       ? state.default_model_id
-      : packagedLibrary.default_model_id;
+      : availableModelIds.has(packagedLibrary.default_model_id)
+        ? packagedLibrary.default_model_id
+        : models[0]?.id ?? null;
+    const deployedModels = sanitizeDeployedModelIds(
+      state.deployed_model_ids,
+    ).filter((modelId) => availableModelIds.has(modelId));
+    const deployedModelIds =
+      deployedModels.length > 0
+        ? deployedModels
+        : configuredDefaultModel == null
+          ? []
+          : [configuredDefaultModel];
+    const defaultModel = deployedModelIds[0] ?? configuredDefaultModel;
     const characterSize = Number(state.character_size);
     const changedPackagedIds = new Set([
       ...Object.keys(state.packaged_animation_overrides),
@@ -457,6 +505,11 @@ function createSettingsStore({
     return {
       schema_version: SETTINGS_SCHEMA_VERSION,
       default_model_id: defaultModel,
+      deployed_model_ids: deployedModelIds,
+      deployment_mode:
+        state.deployment_mode === "crew" && deployedModelIds.length > 1
+          ? "crew"
+          : "solo",
       character_size:
         Number.isFinite(characterSize) &&
         characterSize >= MIN_CHARACTER_SIZE &&
@@ -501,6 +554,8 @@ function createSettingsStore({
       )
     ) {
       state.default_model_id = id;
+      state.deployed_model_ids = [id];
+      state.deployment_mode = "solo";
     }
     writeState();
     return getSnapshot();
@@ -681,21 +736,62 @@ function createSettingsStore({
     }
     const [removed] = state.models.splice(index, 1);
     removeStoredFile(modelDirectory, removed.stored_filename);
-    if (state.default_model_id === modelId) {
-      state.default_model_id =
-        packagedLibrary.default_model_id ?? state.models[0]?.id ?? null;
+    const availableModelIds = new Set(
+      availableModels().map((model) => model.id),
+    );
+    state.deployed_model_ids = sanitizeDeployedModelIds(
+      state.deployed_model_ids,
+    ).filter((deployedModelId) => availableModelIds.has(deployedModelId));
+    if (state.deployed_model_ids.length === 0) {
+      const fallbackId = availableModelIds.has(packagedLibrary.default_model_id)
+        ? packagedLibrary.default_model_id
+        : availableModelIds.values().next().value ?? null;
+      state.deployed_model_ids = fallbackId == null ? [] : [fallbackId];
     }
+    state.default_model_id = state.deployed_model_ids[0] ?? null;
+    state.deployment_mode =
+      state.deployed_model_ids.length > 1 ? "crew" : "solo";
+    writeState();
+    return getSnapshot();
+  }
+
+  function deployModels(modelIds) {
+    if (!Array.isArray(modelIds)) {
+      throw new Error("Deployed models must be provided as an array.");
+    }
+    if (modelIds.length === 0) {
+      throw new Error("Select at least one model to deploy.");
+    }
+    if (modelIds.length > MAX_DEPLOYED_MODELS) {
+      throw new Error(
+        `Persona supports up to ${MAX_DEPLOYED_MODELS} deployed models.`,
+      );
+    }
+    if (
+      modelIds.some(
+        (modelId) => typeof modelId !== "string" || modelId.length === 0,
+      )
+    ) {
+      throw new Error("Every deployed model must have a valid model ID.");
+    }
+    if (new Set(modelIds).size !== modelIds.length) {
+      throw new Error("A model can only appear once in a deployment.");
+    }
+    const availableModelIds = new Set(
+      availableModels().map((model) => model.id),
+    );
+    if (modelIds.some((modelId) => !availableModelIds.has(modelId))) {
+      throw new Error("Every deployed model must be installed.");
+    }
+    state.deployed_model_ids = [...modelIds];
+    state.deployment_mode = modelIds.length > 1 ? "crew" : "solo";
+    state.default_model_id = modelIds[0];
     writeState();
     return getSnapshot();
   }
 
   function setDefaultModel(modelId) {
-    if (!availableModels().some((model) => model.id === modelId)) {
-      throw new Error("Selected model is not installed.");
-    }
-    state.default_model_id = modelId;
-    writeState();
-    return getSnapshot();
+    return deployModels([modelId]);
   }
 
   function setCharacterSize(value) {
@@ -757,6 +853,7 @@ function createSettingsStore({
     deleteAnimation,
     deleteAnimationClip,
     deleteModel,
+    deployModels,
     getAnimation,
     getSnapshot,
     importModel,
@@ -772,6 +869,7 @@ module.exports = {
   ANIMATION_NAME_PATTERN,
   DEFAULT_PACKAGED_LIBRARY_PATH,
   MAX_CHARACTER_SIZE,
+  MAX_DEPLOYED_MODELS,
   MIN_CHARACTER_SIZE,
   SETTINGS_SCHEMA_VERSION,
   createSettingsStore,

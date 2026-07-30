@@ -2,6 +2,7 @@
 
 const fs = require("node:fs");
 const path = require("node:path");
+const { installPersonaCodexHook } = require("./codex-hook.cjs");
 
 const PERSONA_SECTION = "[mcp_servers.persona]";
 
@@ -40,7 +41,11 @@ function upsertPersonaMcpConfig(source, serverUrl) {
   return `${lines.join("\n").replace(/\n*$/, "")}\n`;
 }
 
-function connectCodexCli({ homeDirectory, serverUrl }) {
+function connectCodexCli({
+  homeDirectory,
+  serverUrl,
+  speechHook = null,
+}) {
   const codexDirectory = path.join(homeDirectory, ".codex");
   const configPath = path.join(codexDirectory, "config.toml");
   fs.mkdirSync(codexDirectory, { recursive: true });
@@ -51,11 +56,26 @@ function connectCodexCli({ homeDirectory, serverUrl }) {
   const temporaryPath = `${configPath}.persona-tmp`;
   fs.writeFileSync(temporaryPath, next, { encoding: "utf8", mode: 0o600 });
   fs.renameSync(temporaryPath, configPath);
+  const installedSpeechHook =
+    speechHook == null
+      ? null
+      : installPersonaCodexHook({
+          codexDirectory,
+          endpoint: speechHook.endpoint,
+          tokenFilePath: speechHook.tokenFilePath,
+        });
   return {
     config_path: configPath,
     server_url: serverUrl,
+    ...(installedSpeechHook
+      ? { speech_hook: installedSpeechHook }
+      : {}),
     status: "connected",
   };
 }
 
-module.exports = { connectCodexCli, upsertPersonaMcpConfig };
+module.exports = {
+  connectCodexCli,
+  installPersonaCodexHook,
+  upsertPersonaMcpConfig,
+};

@@ -11,16 +11,17 @@ const {
   chooseAmbientDance,
 } = require("./ambient-dance.cjs");
 
-function dance(id, assetUrls = [`${id}.vrma`]) {
+function dance(id, assetUrls = [`${id}.vrma`], proceduralPreset = null) {
   return {
     id,
     animation_name: id,
     animation_type: "DANCE",
     asset_urls: assetUrls,
+    procedural_preset: proceduralPreset,
   };
 }
 
-test("ambient dances use prompt first-run and relaxed repeat windows", () => {
+test("ambient dances start immediately and rotate while looping", () => {
   assert.equal(
     ambientDanceDelay(true, () => 0),
     FIRST_AMBIENT_DANCE_DELAY_MS.min,
@@ -37,9 +38,11 @@ test("ambient dances use prompt first-run and relaxed repeat windows", () => {
     ambientDanceDelay(false, () => 1),
     NEXT_AMBIENT_DANCE_DELAY_MS.max,
   );
+  assert.ok(FIRST_AMBIENT_DANCE_DELAY_MS.max < 1_000);
+  assert.ok(NEXT_AMBIENT_DANCE_DELAY_MS.min >= 5_000);
 });
 
-test("ambient dances only start when the voice runtime is idle", () => {
+test("ambient dances run while idle or listening, not while speaking", () => {
   assert.equal(canPlayAmbientDance(null), true);
   assert.equal(
     canPlayAmbientDance({ activity: "idle", phase: "inactive" }),
@@ -51,7 +54,7 @@ test("ambient dances only start when the voice runtime is idle", () => {
   );
   assert.equal(
     canPlayAmbientDance({ activity: "listening", phase: "active" }),
-    false,
+    true,
   );
   assert.equal(
     canPlayAmbientDance({ activity: "speaking", phase: "active" }),
@@ -59,16 +62,17 @@ test("ambient dances only start when the voice runtime is idle", () => {
   );
 });
 
-test("ambient dances use captured clips without immediate repetition", () => {
+test("ambient dances use captured clips and procedural dances", () => {
   const candidates = ambientDanceCandidates([
     dance("first"),
-    dance("procedural-only", []),
+    dance("procedural-only", [], "freestyle-groove"),
     { ...dance("talk"), animation_type: "TALK" },
     dance("second"),
+    dance("empty", [], null),
   ]);
   assert.deepEqual(
     candidates.map(({ id }) => id),
-    ["first", "second"],
+    ["first", "procedural-only", "second"],
   );
-  assert.equal(chooseAmbientDance(candidates, "first", () => 0).id, "second");
+  assert.equal(chooseAmbientDance(candidates, "first", () => 0).id, "procedural-only");
 });

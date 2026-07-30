@@ -21,6 +21,7 @@ import {
   loadPackagedSettingsFallback,
   SETTINGS_FALLBACK,
 } from './settings-defaults';
+import { resolveDeployedModels } from './crew-roster';
 
 const INITIAL_STATE: VoiceState = {
   activity: 'idle',
@@ -84,9 +85,9 @@ export function App() {
     voice.activity === 'speaking' &&
     !voice.outputMuted;
 
-  const ambientDanceAllowed =
-    voice.phase === 'inactive' ||
-    (voice.phase === 'active' && voice.activity === 'idle');
+  // Keep the desktop character dancing whenever it is not mid-speech.
+  // Listening/idle must not freeze the avatar into a rest pose.
+  const ambientDanceAllowed = !speaking;
 
   useEffect(() => {
     if (
@@ -113,12 +114,18 @@ export function App() {
   }, [voice]);
 
   const animation = resolveBodyAnimation(voiceAnimation, bodyOverride);
-  const defaultModel =
-    settings.default_model_id == null
-      ? undefined
-      : settings.models.find(
-          (model) => model.id === settings.default_model_id,
-        );
+  const deployedModels = useMemo(
+    () => resolveDeployedModels(settings),
+    [settings],
+  );
+  const deployedCharacters = useMemo(
+    () =>
+      deployedModels.map((model) => ({
+        id: model.id,
+        modelUrl: model.asset_url,
+      })),
+    [deployedModels],
+  );
   const animationRequest = bodyOverride?.requestId ?? 0;
   const configuredAnimationUrls = useMemo(
     () => animationUrlsForType(settings.animations, animation),
@@ -143,7 +150,7 @@ export function App() {
     );
   }, [overrideRequestId]);
 
-  return defaultModel ? (
+  return deployedCharacters.length > 0 ? (
     <main className="app">
       <OverlayChrome />
       <Scene
@@ -153,9 +160,13 @@ export function App() {
         audioLevel={audioLevel}
         characterSize={settings.character_size}
         mirror={bodyOverride?.mirror ?? false}
-        modelUrl={defaultModel.asset_url}
+        characters={deployedCharacters}
         onAnimationComplete={handleAnimationComplete}
-        playback={bodyOverride ? 'once' : 'loop'}
+        playback={
+          bodyOverride == null || bodyOverride.source === 'ambient'
+            ? 'loop'
+            : 'once'
+        }
         proceduralPreset={proceduralPreset}
         speaking={speaking}
       />

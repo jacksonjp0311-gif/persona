@@ -1015,6 +1015,58 @@ button {
   gap: 6px;
 }
 
+.deployment-mode-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 14px;
+}
+
+.deployment-mode-bar button {
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-full);
+  color: var(--text-secondary);
+  background: var(--bg-raised);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+
+.deployment-mode-bar button:hover:not(:disabled) {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.deployment-mode-bar button.active {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  color: var(--accent-text);
+  background: var(--accent-soft);
+}
+
+.deployment-mode-bar button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.model-wheel-rank {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  display: grid;
+  width: 16px;
+  height: 16px;
+  place-items: center;
+  border-radius: 999px;
+  color: white;
+  background: linear-gradient(135deg, var(--accent), #a855f7);
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 0 0 1px color-mix(in srgb, white 24%, transparent);
+}
+
 .wheel-toolbar button {
   display: grid;
   width: 26px;

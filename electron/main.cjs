@@ -501,8 +501,14 @@ function playConfiguredAnimation(
     return false;
   }
   if (source === "command") {
+    // One-shots temporarily own the body; return to continuous dance after.
     clearAmbientDanceTimer();
-    ambientDancePlayed = true;
+    ambientDancePlayed = false;
+    ambientDanceTimer = setTimeout(() => {
+      ambientDanceTimer = null;
+      scheduleAmbientDance();
+    }, 6_500);
+    ambientDanceTimer.unref?.();
   }
   animationCommandRequestId += 1;
   handleBridgeEvent({
@@ -577,8 +583,14 @@ function handleBridgeEvent(event) {
   const canShowAvatar = hasConfiguredModel();
   if (event.type === "state") {
     latestVoiceState = event.state;
-    if (canPlayAmbientDance(latestVoiceState)) scheduleAmbientDance();
-    else clearAmbientDanceTimer();
+    if (canPlayAmbientDance(latestVoiceState)) {
+      // Resume promptly after speech; do not wait a full rotation window.
+      if (!ambientDanceTimer) ambientDancePlayed = false;
+      scheduleAmbientDance();
+    } else {
+      clearAmbientDanceTimer();
+      ambientDancePlayed = false;
+    }
     if (
       canShowAvatar &&
       (event.state.phase === "starting" || event.state.phase === "active")
@@ -799,7 +811,12 @@ if (!app.requestSingleInstanceLock()) {
       publishSettings(settingsStore.setDefaultModel(modelId)),
     );
     ipcMain.handle("persona:settings-deploy-model", (_event, modelId) => {
-      const snapshot = publishSettings(settingsStore.setDefaultModel(modelId));
+      const snapshot = publishSettings(settingsStore.deployModels([modelId]));
+      showOverlay({ focus: true });
+      return snapshot;
+    });
+    ipcMain.handle("persona:settings-deploy-models", (_event, modelIds) => {
+      const snapshot = publishSettings(settingsStore.deployModels(modelIds));
       showOverlay({ focus: true });
       return snapshot;
     });

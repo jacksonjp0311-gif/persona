@@ -16,6 +16,7 @@ import {
   crossFadeAnimationActions,
   type AnimationPlayback,
 } from '../animation-action';
+import { stabilizeFacingTrack } from '../front-facing-motion';
 import {
   PROCEDURAL_DURATIONS,
   RELAXED_REST_POSE,
@@ -225,7 +226,16 @@ export function useVrmAnimation(vrm: VRM | null) {
         if (generation !== requestGeneration.current || !mixer.current) return;
         const previousAction = current.current;
         restoreProceduralPose();
-        const action = mixer.current.clipAction(createVRMAnimationClip(animation, vrm));
+        const hipsTrack = animation.humanoidTracks.rotation.get('hips');
+        if (hipsTrack) {
+          animation.humanoidTracks.rotation.set(
+            'hips',
+            stabilizeFacingTrack(hipsTrack),
+          );
+        }
+        const action = mixer.current.clipAction(
+          createVRMAnimationClip(animation, vrm),
+        );
         const fadeSeconds = transitionSeconds(currentType.current, type);
         action.reset();
         configureAnimationAction(action, playback, playbackRate(type, playback));

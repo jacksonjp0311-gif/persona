@@ -47,6 +47,8 @@ contextBridge.exposeInMainWorld("personaSettings", {
     ipcRenderer.invoke("persona:settings-set-default-model", modelId),
   deployModel: (modelId) =>
     ipcRenderer.invoke("persona:settings-deploy-model", modelId),
+  deployModels: (modelIds) =>
+    ipcRenderer.invoke("persona:settings-deploy-models", modelIds),
   setCharacterSize: (size) =>
     ipcRenderer.invoke("persona:settings-set-character-size", size),
   getMcpStatus: () =>

@@ -64,6 +64,8 @@ interface PersonaAnimationClipSettings {
 interface PersonaSettingsSnapshot {
   schema_version: number;
   default_model_id: string | null;
+  deployed_model_ids: string[];
+  deployment_mode: 'solo' | 'crew';
   character_size: number;
   packaged_animation_change_count: number;
   models: PersonaModelSettings[];
@@ -139,6 +141,7 @@ interface Window {
     deleteModel(modelId: string): Promise<PersonaSettingsSnapshot>;
     setDefaultModel(modelId: string): Promise<PersonaSettingsSnapshot>;
     deployModel(modelId: string): Promise<PersonaSettingsSnapshot>;
+    deployModels(modelIds: string[]): Promise<PersonaSettingsSnapshot>;
     setCharacterSize(size: number): Promise<PersonaSettingsSnapshot>;
     getMcpStatus(): Promise<PersonaMcpStatus>;
     connectCodexCli(): Promise<{
