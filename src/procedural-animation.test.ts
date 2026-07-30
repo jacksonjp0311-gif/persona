@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  MAX_DANCE_ROOT_YAW,
   PROCEDURAL_DURATIONS,
   PROCEDURAL_PRESETS,
   RELAXED_REST_POSE,
+  frontFacingProceduralPose,
   isProceduralPreset,
   proceduralBlendWeight,
   sampleProceduralPose,
@@ -100,6 +102,27 @@ describe('procedural animation library', () => {
       const active = frameEnergy(Math.min(0.8, duration * 0.45));
       expect(active, preset).toBeGreaterThan(0.025);
       expect(Math.abs(active - early), preset).toBeGreaterThan(0.005);
+    }
+  });
+
+  it('never turns dancers completely around on the root or hips', () => {
+    for (const preset of PROCEDURAL_PRESETS) {
+      const duration = PROCEDURAL_DURATIONS[preset];
+      for (const progress of [0, 0.2, 0.45, 0.7, 0.95, 1.4, 3.1, 8]) {
+        const time = duration * progress;
+        const root = sampleProceduralRoot(preset, time);
+        expect(Math.abs(root.yaw), `${preset} root`).toBeLessThanOrEqual(
+          MAX_DANCE_ROOT_YAW + 1e-6,
+        );
+        const pose = frontFacingProceduralPose(
+          sampleProceduralPose(preset, time),
+        );
+        for (const bone of ['hips', 'spine', 'chest', 'upperChest'] as const) {
+          const yaw = pose[bone]?.[1];
+          if (yaw == null) continue;
+          expect(Math.abs(yaw), `${preset} ${bone}`).toBeLessThanOrEqual(0.32);
+        }
+      }
     }
   });
 });

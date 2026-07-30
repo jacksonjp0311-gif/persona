@@ -16,10 +16,14 @@ import {
   crossFadeAnimationActions,
   type AnimationPlayback,
 } from '../animation-action';
-import { stabilizeFacingTrack } from '../front-facing-motion';
+import {
+  MAX_FRONT_FACING_YAW,
+  stabilizeFacingTrack,
+} from '../front-facing-motion';
 import {
   PROCEDURAL_DURATIONS,
   RELAXED_REST_POSE,
+  frontFacingProceduralPose,
   isProceduralPreset,
   proceduralBlendWeight,
   sampleProceduralPose,
@@ -226,11 +230,21 @@ export function useVrmAnimation(vrm: VRM | null) {
         if (generation !== requestGeneration.current || !mixer.current) return;
         const previousAction = current.current;
         restoreProceduralPose();
-        const hipsTrack = animation.humanoidTracks.rotation.get('hips');
-        if (hipsTrack) {
+        // Clamp hips + torso heading so captured dances stay camera-facing.
+        for (const bone of [
+          'hips',
+          'spine',
+          'chest',
+          'upperChest',
+        ] as const) {
+          const track = animation.humanoidTracks.rotation.get(bone);
+          if (!track) continue;
           animation.humanoidTracks.rotation.set(
-            'hips',
-            stabilizeFacingTrack(hipsTrack),
+            bone,
+            stabilizeFacingTrack(
+              track,
+              bone === 'hips' ? undefined : MAX_FRONT_FACING_YAW * 0.7,
+            ),
           );
         }
         const action = mixer.current.clipAction(
@@ -282,10 +296,10 @@ export function useVrmAnimation(vrm: VRM | null) {
         active.playback === 'loop'
           ? active.elapsed % duration
           : Math.min(active.elapsed, duration);
-      const pose = {
+      const pose = frontFacingProceduralPose({
         ...RELAXED_REST_POSE,
         ...sampleProceduralPose(active.preset, sampleTime),
-      };
+      });
       const weight = proceduralBlendWeight(
         active.elapsed,
         duration,

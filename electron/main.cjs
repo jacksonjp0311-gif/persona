@@ -224,8 +224,9 @@ function scheduleAmbientDance() {
     if (!dance) return;
     previousAmbientDanceId = dance.id;
     ambientDancePlayed = true;
+    // Never mirror ambient dances — mirror reads as a full about-face.
     playConfiguredAnimation(dance.animation_name, {
-      mirror: Math.random() >= 0.5,
+      mirror: false,
       source: "ambient",
     });
     scheduleAmbientDance();
