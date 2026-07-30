@@ -32,6 +32,10 @@ const { isAllowedRendererNavigation } = require("./navigation-policy.cjs");
 const { snapshotHasConfiguredModel } = require("./model-readiness.cjs");
 const { parseProtocolUrl, voiceState } = require("./protocol-actions.cjs");
 const {
+  calculateDraggedWindowPosition,
+  finitePoint,
+} = require("./window-drag.cjs");
+const {
   createSettingsWindowPresentationGate,
 } = require("./settings-window-presentation.cjs");
 
@@ -77,6 +81,7 @@ let mcpServerPort = Number(
   process.env.PERSONA_BRIDGE_PORT || DEFAULT_PORT,
 );
 let mcpAnimationCatalogSignature = null;
+let overlayDragState = null;
 const pendingRendererEvents = new Map();
 
 protocol.registerSchemesAsPrivileged([
@@ -251,6 +256,7 @@ function createWindow() {
     height: WINDOW_HEIGHT,
     minWidth: 320,
     minHeight: 480,
+    movable: true,
     show: false,
     frame: false,
     transparent: true,
@@ -749,6 +755,48 @@ if (!app.requestSingleInstanceLock()) {
       });
     });
     ipcMain.on("persona:hide", () => void hideOverlay());
+    ipcMain.on("persona:window-drag-start", (event, point) => {
+      if (
+        !avatarWindow ||
+        avatarWindow.isDestroyed() ||
+        event.sender !== avatarWindow.webContents ||
+        !finitePoint(point)
+      ) {
+        return;
+      }
+      overlayDragState = {
+        cursor: { x: point.x, y: point.y },
+        window: avatarWindow.getPosition(),
+      };
+    });
+    ipcMain.on("persona:window-drag-move", (event, point) => {
+      if (
+        !overlayDragState ||
+        !avatarWindow ||
+        avatarWindow.isDestroyed() ||
+        event.sender !== avatarWindow.webContents ||
+        !finitePoint(point)
+      ) {
+        return;
+      }
+      const nextPosition = calculateDraggedWindowPosition(
+        overlayDragState.window,
+        overlayDragState.cursor,
+        point,
+      );
+      if (nextPosition) {
+        avatarWindow.setPosition(nextPosition[0], nextPosition[1], false);
+      }
+    });
+    ipcMain.on("persona:window-drag-end", (event) => {
+      if (
+        avatarWindow &&
+        !avatarWindow.isDestroyed() &&
+        event.sender === avatarWindow.webContents
+      ) {
+        overlayDragState = null;
+      }
+    });
     // The resolved theme lives in renderer storage, so the window chrome can
     // only be corrected once the settings renderer reports it. Accepts the two
     // known theme names and never a caller-supplied colour.

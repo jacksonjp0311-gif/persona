@@ -9,6 +9,24 @@ Persona includes the `dawn.exr` environment from `@pmndrs/assets`. The asset
 collection is published under CC0 1.0 and sources its HDR environments from
 Poly Haven.
 
+## Space-XR motion captures
+
+The following VRMA files are adaptations of BVH motion captures made by the
+Space-XR team at IMPA VISGRAF Lab and published under Creative Commons
+Attribution-ShareAlike 4.0 International:
+
+- `space-xr-indian-dance.vrma`, `space-xr-pop-dance.vrma`, and
+  `space-xr-wave-dance.vrma`: performance by Thaisa Martins.
+
+Source collection: https://visgraflab.impa.br/dance/?p=1
+
+License: https://creativecommons.org/licenses/by-sa/4.0/
+
+Persona converted the original BVH skeleton and keyframes to the VRM Animation
+format, mapped the source humanoid bones to VRM humanoid bone names, and changed
+the container format to binary glTF. These adapted animation files remain
+licensed under CC BY-SA 4.0.
+
 ## Local development media
 
 VRM and VRMA files are intentionally ignored by Git. Any local files without a

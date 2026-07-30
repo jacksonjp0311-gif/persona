@@ -19,7 +19,9 @@ import {
 import {
   PROCEDURAL_DURATIONS,
   isProceduralPreset,
+  proceduralBlendWeight,
   sampleProceduralPose,
+  sampleProceduralRoot,
   type ProceduralBone,
   type ProceduralPreset,
 } from '../procedural-animation';
@@ -68,18 +70,31 @@ export function useVrmAnimation(vrm: VRM | null) {
       { base: THREE.Quaternion; node: THREE.Object3D }
     >(),
   );
+  const proceduralRoot = useRef<{
+    position: THREE.Vector3;
+    quaternion: THREE.Quaternion;
+  } | null>(null);
 
   const restoreProceduralPose = useCallback(() => {
     for (const { base, node } of proceduralBones.current.values()) {
       node.quaternion.copy(base);
     }
+    if (proceduralRoot.current && vrm) {
+      vrm.scene.position.copy(proceduralRoot.current.position);
+      vrm.scene.quaternion.copy(proceduralRoot.current.quaternion);
+    }
     procedural.current = null;
-  }, []);
+  }, [vrm]);
 
   useEffect(() => {
     if (!vrm) return;
     const animationHistory = previousAnimation.current;
     const boundProceduralBones = proceduralBones.current;
+    const boundProceduralRoot = {
+      position: vrm.scene.position.clone(),
+      quaternion: vrm.scene.quaternion.clone(),
+    };
+    proceduralRoot.current = boundProceduralRoot;
     const animationMixer = new THREE.AnimationMixer(vrm.scene);
     boundProceduralBones.clear();
     const handleFinished = ({ action }: { action: THREE.AnimationAction }) => {
@@ -105,7 +120,10 @@ export function useVrmAnimation(vrm: VRM | null) {
       for (const { base, node } of boundProceduralBones.values()) {
         node.quaternion.copy(base);
       }
+      vrm.scene.position.copy(boundProceduralRoot.position);
+      vrm.scene.quaternion.copy(boundProceduralRoot.quaternion);
       procedural.current = null;
+      proceduralRoot.current = null;
       boundProceduralBones.clear();
       animationHistory.clear();
     };
@@ -210,6 +228,11 @@ export function useVrmAnimation(vrm: VRM | null) {
           ? active.elapsed % duration
           : Math.min(active.elapsed, duration);
       const pose = sampleProceduralPose(active.preset, sampleTime);
+      const weight = proceduralBlendWeight(
+        active.elapsed,
+        duration,
+        active.playback,
+      );
       for (const [bone, rotation] of Object.entries(pose) as [
         ProceduralBone,
         readonly [number, number, number],
@@ -226,7 +249,29 @@ export function useVrmAnimation(vrm: VRM | null) {
         const offset = new THREE.Quaternion().setFromEuler(
           new THREE.Euler(rotation[0], rotation[1], rotation[2], 'XYZ'),
         );
-        binding.node.quaternion.copy(binding.base).multiply(offset);
+        const target = binding.base.clone().multiply(offset);
+        binding.node.quaternion.copy(binding.base).slerp(target, weight);
+      }
+      const rootBinding = proceduralRoot.current;
+      if (rootBinding) {
+        const rootMotion = sampleProceduralRoot(active.preset, sampleTime);
+        vrm.scene.position
+          .copy(rootBinding.position)
+          .addScaledVector(
+            new THREE.Vector3(...rootMotion.position),
+            weight,
+          );
+        const targetRootRotation = rootBinding.quaternion
+          .clone()
+          .multiply(
+            new THREE.Quaternion().setFromAxisAngle(
+              new THREE.Vector3(0, 1, 0),
+              rootMotion.yaw,
+            ),
+          );
+        vrm.scene.quaternion
+          .copy(rootBinding.quaternion)
+          .slerp(targetRootRotation, weight);
       }
 
       if (active.playback === 'once' && active.elapsed >= duration) {

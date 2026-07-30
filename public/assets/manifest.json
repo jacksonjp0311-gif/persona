@@ -218,6 +218,24 @@
       "role": "model",
       "license": "CC0-1.0",
       "source": "https://arweave.net/w7BA_cYyPX8wtbr2YcUNQtGjQkTPAGuA-l4WOA2Pr0k"
+    },
+    {
+      "path": "animations/space-xr-indian-dance.vrma",
+      "role": "animation",
+      "license": "CC-BY-SA-4.0",
+      "source": "https://visgraflab.impa.br/dance/wp-content/uploads/2023/09/thaise-india-dance-loop.bvh"
+    },
+    {
+      "path": "animations/space-xr-pop-dance.vrma",
+      "role": "animation",
+      "license": "CC-BY-SA-4.0",
+      "source": "https://visgraflab.impa.br/dance/wp-content/uploads/2023/09/ladinho.bvh"
+    },
+    {
+      "path": "animations/space-xr-wave-dance.vrma",
+      "role": "animation",
+      "license": "CC-BY-SA-4.0",
+      "source": "https://visgraflab.impa.br/dance/wp-content/uploads/2023/09/ondula-vale.bvh"
     }
   ]
 }

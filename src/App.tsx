@@ -5,6 +5,7 @@ import {
   useState,
 } from 'react';
 import { Scene } from './components/Scene';
+import { OverlayChrome } from './components/OverlayChrome';
 import {
   animationUrlsForType,
   immediateVoiceAnimation,
@@ -115,7 +116,10 @@ export function App() {
     [animation, settings.animations],
   );
   const proceduralPreset =
-    bodyOverride?.proceduralPreset ?? configuredProceduralPreset;
+    bodyOverride?.proceduralPreset ??
+    (voice.phase === 'active' && voice.activity === 'listening'
+      ? 'calm-listen'
+      : configuredProceduralPreset);
   const overrideRequestId = bodyOverride?.requestId ?? null;
   const handleAnimationComplete = useCallback(() => {
     if (overrideRequestId == null) return;
@@ -126,6 +130,7 @@ export function App() {
 
   return defaultModel ? (
     <main className="app">
+      <OverlayChrome />
       <Scene
         animation={animation}
         animationRequest={animationRequest}

@@ -56,6 +56,9 @@ test("preload exposes only narrow Persona and settings IPC operations", async ()
   assert.deepEqual([...exposed.keys()], ["personaBridge", "personaSettings"]);
   await bridge.getSnapshot();
   bridge.hide();
+  bridge.startWindowDrag({ x: 10, y: 20 });
+  bridge.moveWindowDrag({ x: 30, y: 40 });
+  bridge.endWindowDrag();
   await settings.get();
   await settings.importModel({ model_name: "Studio Assistant" });
   await settings.createAnimation({
@@ -118,6 +121,9 @@ test("preload exposes only narrow Persona and settings IPC operations", async ()
   ]);
   assert.deepEqual(sent, [
     ["persona:hide"],
+    ["persona:window-drag-start", { x: 10, y: 20 }],
+    ["persona:window-drag-move", { x: 30, y: 40 }],
+    ["persona:window-drag-end"],
     ["persona:settings-set-window-theme", "light"],
   ]);
 

@@ -142,6 +142,37 @@ function modelInitials(name: string): string {
 }
 
 const WHEEL_PAGE_SIZE = 12;
+type ActionCategory =
+  | 'all'
+  | 'captured'
+  | 'football'
+  | 'dance'
+  | 'conversation'
+  | 'system'
+  | 'custom';
+
+const ACTION_CATEGORIES: Array<{
+  id: ActionCategory;
+  label: string;
+}> = [
+  { id: 'all', label: 'All' },
+  { id: 'captured', label: 'Captured' },
+  { id: 'dance', label: 'Dance' },
+  { id: 'football', label: 'Football' },
+  { id: 'conversation', label: 'Conversation' },
+  { id: 'system', label: 'System' },
+  { id: 'custom', label: 'Custom' },
+];
+
+function actionCategory(
+  animation: PersonaAnimationSettings,
+): Exclude<ActionCategory, 'all' | 'captured'> {
+  if (animation.system) return 'system';
+  if (animation.origin === 'user') return 'custom';
+  if (animation.id.startsWith('nfl-')) return 'football';
+  if (animation.id.startsWith('dance-')) return 'dance';
+  return 'conversation';
+}
 
 export function SettingsPage() {
   const bridge = window.personaSettings;
@@ -158,6 +189,11 @@ export function SettingsPage() {
     useState<PersonaAnimationSettings | null>(null);
   const [previewClipId, setPreviewClipId] = useState<string | null>(null);
   const [previewRequest, setPreviewRequest] = useState(0);
+  const [previewMouthTest, setPreviewMouthTest] = useState(false);
+  const [actionFilter, setActionFilter] =
+    useState<ActionCategory>('captured');
+  const [cycleActions, setCycleActions] = useState(false);
+  const [cycleIndex, setCycleIndex] = useState(0);
   const [modelName, setModelName] = useState('');
   const [animationMetadata, setAnimationMetadata] =
     useState<CustomAnimationMetadata>({
@@ -266,10 +302,14 @@ export function SettingsPage() {
 
   const previewType: PlayableAnimationType =
     previewAnimation?.animation_type ??
-    (previewAnimation ? 'CUSTOM' : 'IDLE');
-  const idleAnimationUrls = useMemo(
-    () => animationUrlsForType(settings.animations, 'IDLE'),
-    [settings.animations],
+    (previewAnimation ? 'CUSTOM' : previewMouthTest ? 'TALK' : 'IDLE');
+  const ambientAnimationUrls = useMemo(
+    () =>
+      animationUrlsForType(
+        settings.animations,
+        previewMouthTest ? 'TALK' : 'IDLE',
+      ),
+    [previewMouthTest, settings.animations],
   );
   const previewClip = previewAnimation?.clips.find(
     (clip) => clip.id === previewClipId,
@@ -279,19 +319,53 @@ export function SettingsPage() {
       previewClip
         ? [previewClip.asset_url]
         : previewAnimation
-          ? []
-          : idleAnimationUrls,
-    [idleAnimationUrls, previewAnimation, previewClip],
+          ? previewAnimation.clips.map((clip) => clip.asset_url)
+          : ambientAnimationUrls,
+    [ambientAnimationUrls, previewAnimation, previewClip],
   );
   const previewProceduralPreset =
     previewAnimation?.procedural_preset ??
-    proceduralPresetForType(settings.animations, 'IDLE');
+    proceduralPresetForType(
+      settings.animations,
+      previewMouthTest ? 'TALK' : 'IDLE',
+    );
 
   const previewTitle = useMemo(() => {
     if (previewClip) return previewClip.animation_name;
     if (previewAnimation) return previewAnimation.animation_name;
     return 'Character preview';
   }, [previewAnimation, previewClip]);
+  const visibleAnimations = useMemo(
+    () =>
+      actionFilter === 'all'
+        ? settings.animations
+        : actionFilter === 'captured'
+          ? settings.animations.filter(
+              (animation) => animation.clips.length > 0,
+            )
+        : settings.animations.filter(
+            (animation) => actionCategory(animation) === actionFilter,
+          ),
+    [actionFilter, settings.animations],
+  );
+  const actionCategoryCounts = useMemo(
+    () =>
+      Object.fromEntries(
+        ACTION_CATEGORIES.map(({ id }) => [
+          id,
+          id === 'all'
+            ? settings.animations.length
+            : id === 'captured'
+              ? settings.animations.filter(
+                  (animation) => animation.clips.length > 0,
+                ).length
+            : settings.animations.filter(
+                (animation) => actionCategory(animation) === id,
+              ).length,
+        ]),
+      ) as Record<ActionCategory, number>,
+    [settings.animations],
+  );
 
   const updateSnapshot = useCallback((snapshot: PersonaSettingsSnapshot) => {
     setSettings(snapshot);
@@ -621,13 +695,66 @@ export function SettingsPage() {
     setPreviewRequest((request) => request + 1);
   };
 
-  const playProceduralAnimation = (
-    animation: PersonaAnimationSettings,
-  ) => {
-    if (!animation.procedural_preset) return;
-    setPreviewAnimation(animation);
-    setPreviewClipId(null);
-    setPreviewRequest((request) => request + 1);
+  const playProceduralAnimation = useCallback(
+    (animation: PersonaAnimationSettings) => {
+      if (!animation.procedural_preset && animation.clips.length === 0) return;
+      setPreviewMouthTest(false);
+      setPreviewAnimation(animation);
+      setPreviewClipId(null);
+      setPreviewRequest((request) => request + 1);
+    },
+    [],
+  );
+
+  const cycleCandidates = useMemo(
+    () =>
+      visibleAnimations.filter(
+        (animation) =>
+          animation.procedural_preset != null || animation.clips.length > 0,
+      ).sort(
+        (left, right) =>
+          Number(right.clips.length > 0) - Number(left.clips.length > 0),
+      ),
+    [visibleAnimations],
+  );
+
+  useEffect(() => {
+    if (!cycleActions || cycleCandidates.length === 0) return;
+    const timer = window.setInterval(() => {
+      setCycleIndex((current) => {
+        const next = (current + 1) % cycleCandidates.length;
+        playProceduralAnimation(cycleCandidates[next]);
+        return next;
+      });
+    }, 4800);
+    return () => window.clearInterval(timer);
+  }, [cycleActions, cycleCandidates, playProceduralAnimation]);
+
+  useEffect(() => {
+    if (!previewMouthTest) return;
+    const timer = window.setTimeout(() => setPreviewMouthTest(false), 6000);
+    return () => window.clearTimeout(timer);
+  }, [previewMouthTest]);
+
+  const toggleActionCycle = () => {
+    if (cycleActions) {
+      setCycleActions(false);
+      return;
+    }
+    const first = cycleCandidates[0];
+    if (!first) return;
+    setCycleIndex(0);
+    setCycleActions(true);
+    playProceduralAnimation(first);
+  };
+
+  const stepActionCycle = (direction: -1 | 1) => {
+    if (cycleCandidates.length === 0) return;
+    const next =
+      (cycleIndex + direction + cycleCandidates.length) %
+      cycleCandidates.length;
+    setCycleIndex(next);
+    playProceduralAnimation(cycleCandidates[next]);
   };
 
   const headingSummary =
@@ -938,8 +1065,8 @@ export function SettingsPage() {
                   <div>
                     <h2>Animation actions</h2>
                     <p>
-                      Preview built-in motion on any character, or add VRMA
-                      clips as optional action variants.
+                      Captured VRMA motion plays first. Generated motion stays
+                      available as a fallback for actions without a clip.
                     </p>
                   </div>
                   <button
@@ -955,8 +1082,69 @@ export function SettingsPage() {
                     Reset packaged actions
                   </button>
                 </div>
+                <div className="action-dashboard">
+                  <div
+                    aria-label="Action categories"
+                    className="action-category-tabs"
+                    role="tablist"
+                  >
+                    {ACTION_CATEGORIES.map((category) => (
+                      <button
+                        aria-selected={actionFilter === category.id}
+                        className={
+                          actionFilter === category.id ? 'selected' : ''
+                        }
+                        key={category.id}
+                        onClick={() => {
+                          setActionFilter(category.id);
+                          setCycleActions(false);
+                          setCycleIndex(0);
+                        }}
+                        role="tab"
+                        type="button"
+                      >
+                        {category.label}
+                        <span>{actionCategoryCounts[category.id]}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="action-cycle-controls">
+                    <div>
+                      <strong>Live action cycle</strong>
+                      <span>
+                        {cycleActions
+                          ? `Playing ${cycleCandidates[cycleIndex]?.animation_name ?? 'action'}`
+                          : `Review ${cycleCandidates.length} ${actionFilter} actions`}
+                      </span>
+                    </div>
+                    <button
+                      aria-label="Previous action"
+                      disabled={cycleCandidates.length === 0}
+                      onClick={() => stepActionCycle(-1)}
+                      type="button"
+                    >
+                      ‹
+                    </button>
+                    <button
+                      className={cycleActions ? 'cycling' : ''}
+                      disabled={cycleCandidates.length === 0}
+                      onClick={toggleActionCycle}
+                      type="button"
+                    >
+                      {cycleActions ? '■ Stop cycle' : '▶ Cycle actions'}
+                    </button>
+                    <button
+                      aria-label="Next action"
+                      disabled={cycleCandidates.length === 0}
+                      onClick={() => stepActionCycle(1)}
+                      type="button"
+                    >
+                      ›
+                    </button>
+                  </div>
+                </div>
                 <div className="animation-list">
-                  {settings.animations.map((animation) => (
+                  {visibleAnimations.map((animation) => (
                     <article
                       className={`animation-card ${
                         animation.system ? 'system-action-card' : ''
@@ -1013,7 +1201,8 @@ export function SettingsPage() {
                       </div>
 
                       <div className="animation-clips">
-                        {animation.procedural_preset && (
+                        {(animation.procedural_preset ||
+                          animation.clips.length > 0) && (
                           <button
                             className={`procedural-preview-button ${
                               previewAnimation?.id === animation.id &&
@@ -1026,8 +1215,14 @@ export function SettingsPage() {
                           >
                             <span aria-hidden="true">▶</span>
                             <span>
-                              <strong>Preview built-in motion</strong>
-                              <small>{animation.procedural_preset}</small>
+                              <strong>Preview action</strong>
+                              <small>
+                                {animation.clips.length > 0
+                                  ? `${animation.clips.length} captured clip${
+                                      animation.clips.length === 1 ? '' : 's'
+                                    }`
+                                  : animation.procedural_preset}
+                              </small>
                             </span>
                           </button>
                         )}
@@ -1594,7 +1789,7 @@ export function SettingsPage() {
                   animation={previewType}
                   animationRequest={previewRequest}
                   animationUrls={previewAnimationUrls}
-                  audioLevel={0}
+                  audioLevel={previewMouthTest ? 0.14 : 0}
                   characterSize={settings.character_size}
                   enablePan={false}
                   framingMargin={1.22}
@@ -1606,7 +1801,7 @@ export function SettingsPage() {
                   }}
                   proceduralPreset={previewProceduralPreset}
                   playback={previewAnimation ? 'once' : 'loop'}
-                  speaking={false}
+                  speaking={previewMouthTest}
                 />
               )}
               <div className="preview-hint">
@@ -1663,8 +1858,24 @@ export function SettingsPage() {
               </span>
             </button>
             <div className="preview-now-playing">
-              <span>Now previewing</span>
-              <strong>{previewTitle}</strong>
+              <div>
+                <span>Now previewing</span>
+                <strong>
+                  {previewMouthTest ? 'Mouth + speaking test' : previewTitle}
+                </strong>
+              </div>
+              <button
+                className={previewMouthTest ? 'active' : ''}
+                onClick={() => {
+                  setPreviewAnimation(null);
+                  setPreviewClipId(null);
+                  setPreviewMouthTest((active) => !active);
+                  setPreviewRequest((request) => request + 1);
+                }}
+                type="button"
+              >
+                {previewMouthTest ? 'Stop mouth test' : 'Test mouth'}
+              </button>
               {previewAnimation && (
                 <small>{previewAnimation.animation_description}</small>
               )}

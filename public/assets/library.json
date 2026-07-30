@@ -335,7 +335,9 @@
       "animation_trigger_scenario": "Use for a fluid dance accent or transition.",
       "animation_type": "DANCE",
       "procedural_preset": "body-wave",
-      "asset_paths": []
+      "asset_paths": [
+        "animations/space-xr-wave-dance.vrma"
+      ]
     },
     {
       "id": "dance-moonwalk-glide",
@@ -353,7 +355,9 @@
       "animation_trigger_scenario": "Use for a warm, rhythmic Latin dance beat.",
       "animation_type": "DANCE",
       "procedural_preset": "salsa-basic",
-      "asset_paths": []
+      "asset_paths": [
+        "animations/space-xr-indian-dance.vrma"
+      ]
     },
     {
       "id": "dance-disco-point",
@@ -380,6 +384,98 @@
       "animation_trigger_scenario": "Use for entrances, reveals, or joyful completions.",
       "animation_type": "DANCE",
       "procedural_preset": "spin-celebration",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-the-twist",
+      "animation_name": "the-twist",
+      "animation_description": "A lively heel-and-hip twist with bent arms.",
+      "animation_trigger_scenario": "Use for an upbeat classic party dance.",
+      "animation_type": "DANCE",
+      "procedural_preset": "the-twist",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-charleston-step",
+      "animation_name": "charleston-step",
+      "animation_description": "Alternating forward kicks and swinging arms in a Charleston groove.",
+      "animation_trigger_scenario": "Use for a playful vintage dance break.",
+      "animation_type": "DANCE",
+      "procedural_preset": "charleston-step",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-side-shuffle",
+      "animation_name": "side-shuffle",
+      "animation_description": "Quick side-to-side shuffle steps with coordinated arm swings.",
+      "animation_trigger_scenario": "Use for an energetic modern dance transition.",
+      "animation_type": "DANCE",
+      "procedural_preset": "side-shuffle",
+      "asset_paths": [
+        "animations/space-xr-pop-dance.vrma"
+      ]
+    },
+    {
+      "id": "dance-grapevine-step",
+      "animation_name": "grapevine-step",
+      "animation_description": "A crossing lateral grapevine pattern with open arms.",
+      "animation_trigger_scenario": "Use for social dance and group-dance moments.",
+      "animation_type": "DANCE",
+      "procedural_preset": "grapevine-step",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-jazz-square",
+      "animation_name": "jazz-square",
+      "animation_description": "Four precise crossing steps trace a compact jazz square.",
+      "animation_trigger_scenario": "Use for theatrical or musical-style movement.",
+      "animation_type": "DANCE",
+      "procedural_preset": "jazz-square",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-box-step",
+      "animation_name": "box-step",
+      "animation_description": "A smooth ballroom-inspired box step with held arms.",
+      "animation_trigger_scenario": "Use for calm partner-dance styling.",
+      "animation_type": "DANCE",
+      "procedural_preset": "box-step",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-mambo-step",
+      "animation_name": "mambo-step",
+      "animation_description": "Forward-and-back mambo weight changes with rhythmic hips.",
+      "animation_trigger_scenario": "Use for a lively Latin dance beat.",
+      "animation_type": "DANCE",
+      "procedural_preset": "mambo-step",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-cha-cha",
+      "animation_name": "cha-cha",
+      "animation_description": "Quick triple steps and hip accents form a compact cha-cha.",
+      "animation_trigger_scenario": "Use for fast, playful Latin dance music.",
+      "animation_type": "DANCE",
+      "procedural_preset": "cha-cha",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-arm-wave",
+      "animation_name": "arm-wave",
+      "animation_description": "A smooth wave travels across both arms from hand to hand.",
+      "animation_trigger_scenario": "Use for fluid freestyle and electronic dance accents.",
+      "animation_type": "DANCE",
+      "procedural_preset": "arm-wave",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-freestyle-groove",
+      "animation_name": "freestyle-groove",
+      "animation_description": "A layered full-body groove with bounce, steps, arm swings, and head rhythm.",
+      "animation_trigger_scenario": "Use for a general high-energy dance moment.",
+      "animation_type": "DANCE",
+      "procedural_preset": "freestyle-groove",
       "asset_paths": []
     },
     {

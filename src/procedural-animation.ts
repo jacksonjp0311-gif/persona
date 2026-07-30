@@ -21,6 +21,16 @@ export const PROCEDURAL_PRESETS = [
   'disco-point',
   'hip-hop-bounce',
   'spin-celebration',
+  'the-twist',
+  'charleston-step',
+  'side-shuffle',
+  'grapevine-step',
+  'jazz-square',
+  'box-step',
+  'mambo-step',
+  'cha-cha',
+  'arm-wave',
+  'freestyle-groove',
   'open-hand-explain',
   'thoughtful-nod',
   'agree-enthusiastic',
@@ -55,6 +65,11 @@ export type ProceduralBone =
 export type ProceduralPose = Partial<
   Record<ProceduralBone, readonly [number, number, number]>
 >;
+
+export interface ProceduralRootMotion {
+  position: readonly [number, number, number];
+  yaw: number;
+}
 
 const TAU = Math.PI * 2;
 const clamp = (value: number, low = 0, high = 1) =>
@@ -93,6 +108,16 @@ export const PROCEDURAL_DURATIONS: Readonly<Record<ProceduralPreset, number>> = 
   'disco-point': 3.5,
   'hip-hop-bounce': 4,
   'spin-celebration': 3.5,
+  'the-twist': 4,
+  'charleston-step': 4,
+  'side-shuffle': 4,
+  'grapevine-step': 4,
+  'jazz-square': 4,
+  'box-step': 4,
+  'mambo-step': 4,
+  'cha-cha': 4,
+  'arm-wave': 4,
+  'freestyle-groove': 5,
   'open-hand-explain': 4,
   'thoughtful-nod': 3,
   'agree-enthusiastic': 3,
@@ -110,6 +135,17 @@ export function isProceduralPreset(value: unknown): value is ProceduralPreset {
   );
 }
 
+export function proceduralBlendWeight(
+  elapsed: number,
+  duration: number,
+  playback: 'loop' | 'once',
+): number {
+  const enter = ease(elapsed / 0.3);
+  if (playback === 'loop') return enter;
+  const exit = ease((duration - elapsed) / 0.38);
+  return Math.min(enter, exit);
+}
+
 export function sampleProceduralPose(
   preset: ProceduralPreset,
   time: number,
@@ -121,10 +157,14 @@ export function sampleProceduralPose(
   switch (preset) {
     case 'breathing-idle':
       return {
-        chest: [0.018 * wave(time, 0.22), 0, 0.012 * sway],
-        head: [0.018 * wave(time, 0.17), 0.025 * sway, 0],
-        leftUpperArm: [0, 0, -0.025 * sway],
-        rightUpperArm: [0, 0, -0.025 * sway],
+        hips: [0.025 * Math.abs(sway), 0.07 * sway, -0.035 * sway],
+        spine: [0.018 * wave(time, 0.22), -0.035 * sway, 0],
+        chest: [0.035 * wave(time, 0.22), -0.04 * sway, 0.035 * sway],
+        head: [0.035 * wave(time, 0.17), 0.07 * sway, -0.02 * sway],
+        leftUpperArm: [-0.06, 0, -0.07 - 0.035 * sway],
+        rightUpperArm: [-0.06, 0, 0.07 - 0.035 * sway],
+        leftLowerArm: [-0.08 - 0.03 * sway, 0, 0],
+        rightLowerArm: [-0.08 + 0.03 * sway, 0, 0],
       };
     case 'conversational-talk':
       return {
@@ -332,10 +372,128 @@ export function sampleProceduralPose(
       };
     case 'spin-celebration':
       return {
-        hips: [0.05, time * 1.9, 0],
+        hips: [0.05, 0, 0],
         chest: [-0.08, 0, 0],
         leftUpperArm: [-0.3, 0, -1.15],
         rightUpperArm: [-0.3, 0, 1.15],
+      };
+    case 'the-twist':
+      return {
+        hips: [0.14 * Math.abs(b), 0.48 * step, 0],
+        chest: [-0.08, -0.36 * step, 0],
+        leftUpperArm: [-0.45, 0, -0.42 + 0.12 * step],
+        rightUpperArm: [-0.45, 0, 0.42 + 0.12 * step],
+        leftLowerArm: [-0.78, 0, 0],
+        rightLowerArm: [-0.78, 0, 0],
+        leftUpperLeg: [0.12 * step, 0.2 * step, 0],
+        rightUpperLeg: [-0.12 * step, -0.2 * step, 0],
+      };
+    case 'charleston-step':
+      return {
+        hips: [0.1, 0.1 * step, 0],
+        chest: [-0.08, -0.08 * step, 0],
+        leftUpperArm: [-0.5 + 0.28 * step, 0, -0.2],
+        rightUpperArm: [-0.5 - 0.28 * step, 0, 0.2],
+        leftUpperLeg: [0.62 * step, 0, 0],
+        rightUpperLeg: [-0.62 * step, 0, 0],
+        leftLowerLeg: [0.58 * Math.max(0, step), 0, 0],
+        rightLowerLeg: [0.58 * Math.max(0, -step), 0, 0],
+        leftFoot: [0.34 * step, 0, 0],
+        rightFoot: [-0.34 * step, 0, 0],
+      };
+    case 'side-shuffle':
+      return {
+        hips: [0.08 + 0.08 * Math.abs(b), 0, -0.2 * step],
+        chest: [-0.06, 0, 0.14 * step],
+        leftUpperArm: [-0.42 - 0.24 * step, 0, -0.24],
+        rightUpperArm: [-0.42 + 0.24 * step, 0, 0.24],
+        leftUpperLeg: [0.28 * step, 0, 0.18 * step],
+        rightUpperLeg: [-0.28 * step, 0, 0.18 * step],
+        leftLowerLeg: [0.36 * Math.max(0, -step), 0, 0],
+        rightLowerLeg: [0.36 * Math.max(0, step), 0, 0],
+      };
+    case 'grapevine-step':
+      return {
+        hips: [0.05, 0.18 * step, -0.16 * step],
+        chest: [-0.04, -0.12 * step, 0.12 * step],
+        leftUpperArm: [-0.38 - 0.18 * step, 0, -0.48],
+        rightUpperArm: [-0.38 + 0.18 * step, 0, 0.48],
+        leftUpperLeg: [0.18 * step, 0.22 * step, 0.2 * step],
+        rightUpperLeg: [-0.18 * step, -0.22 * step, 0.2 * step],
+      };
+    case 'jazz-square': {
+      const phase = (time * 1.1) % 1;
+      const quarter = Math.floor(phase * 4);
+      const local = ease((phase * 4) % 1);
+      const left = quarter === 0 || quarter === 3 ? local : 1 - local;
+      const forward = quarter < 2 ? local : 1 - local;
+      return {
+        hips: [0.06, 0.16 * (left - 0.5), -0.12 * (left - 0.5)],
+        chest: [-0.05, -0.1 * (left - 0.5), 0.08 * (left - 0.5)],
+        leftUpperArm: [-0.45, 0, -0.42],
+        rightUpperArm: [-0.45, 0, 0.42],
+        leftUpperLeg: [0.35 * (forward - 0.5), 0.2 * (left - 0.5), 0],
+        rightUpperLeg: [-0.35 * (forward - 0.5), -0.2 * (left - 0.5), 0],
+      };
+    }
+    case 'box-step':
+      return {
+        hips: [0.05, 0.12 * step, -0.1 * step],
+        chest: [-0.04, -0.08 * step, 0.08 * step],
+        leftUpperArm: [-0.56, 0, -0.36],
+        rightUpperArm: [-0.56, 0, 0.36],
+        leftLowerArm: [-0.72, 0, 0],
+        rightLowerArm: [-0.72, 0, 0],
+        leftUpperLeg: [0.38 * step, 0, 0.12 * step],
+        rightUpperLeg: [-0.38 * step, 0, 0.12 * step],
+      };
+    case 'mambo-step':
+      return {
+        hips: [0.06, 0.22 * step, -0.18 * step],
+        chest: [-0.05, -0.13 * step, 0.1 * step],
+        leftUpperArm: [-0.5 - 0.15 * step, 0, -0.28],
+        rightUpperArm: [-0.5 + 0.15 * step, 0, 0.28],
+        leftUpperLeg: [0.48 * step, 0, 0],
+        rightUpperLeg: [-0.36 * step, 0, 0],
+        leftLowerLeg: [0.28 * Math.max(0, -step), 0, 0],
+        rightLowerLeg: [0.28 * Math.max(0, step), 0, 0],
+      };
+    case 'cha-cha': {
+      const quick = wave(time, 2.7);
+      return {
+        hips: [0.05, 0.2 * quick, -0.2 * step],
+        chest: [-0.04, -0.1 * quick, 0.1 * step],
+        leftUpperArm: [-0.48, 0, -0.4 - 0.08 * quick],
+        rightUpperArm: [-0.48, 0, 0.4 - 0.08 * quick],
+        leftUpperLeg: [0.3 * step, 0.1 * quick, 0],
+        rightUpperLeg: [-0.3 * step, -0.1 * quick, 0],
+      };
+    }
+    case 'arm-wave':
+      return {
+        chest: [0, 0.08 * wave(time, 0.5), 0],
+        leftUpperArm: [-0.35, 0, -1.18],
+        leftLowerArm: [-0.25 - 0.4 * wave(time, 0.75, 1.4), 0, 0],
+        leftHand: [0, 0, 0.34 * wave(time, 0.75, 2.2)],
+        rightUpperArm: [-0.35, 0, 1.18],
+        rightLowerArm: [-0.25 - 0.4 * wave(time, 0.75, 4.5), 0, 0],
+        rightHand: [0, 0, 0.34 * wave(time, 0.75, 5.4)],
+        head: [0.03 * b, -0.06 * sway, 0],
+      };
+    case 'freestyle-groove':
+      return {
+        hips: [0.1 + 0.08 * Math.abs(b), 0.22 * step, -0.16 * wave(time, 1.2)],
+        spine: [-0.05 * b, -0.12 * step, 0],
+        chest: [-0.1 - 0.06 * Math.abs(b), -0.15 * step, 0.16 * step],
+        head: [0.08 * wave(time, 0.9), 0.1 * sway, -0.05 * step],
+        leftUpperArm: [-0.62 - 0.36 * step, 0, -0.36],
+        rightUpperArm: [-0.62 + 0.36 * step, 0, 0.36],
+        leftLowerArm: [-0.82 + 0.24 * b, 0, 0],
+        rightLowerArm: [-0.82 - 0.24 * b, 0, 0],
+        leftUpperLeg: [0.42 * step, 0, 0.12 * step],
+        rightUpperLeg: [-0.42 * step, 0, 0.12 * step],
+        leftLowerLeg: [0.35 * Math.max(0, -step), 0, 0],
+        rightLowerLeg: [0.35 * Math.max(0, step), 0, 0],
       };
     case 'open-hand-explain':
       return {
@@ -403,4 +561,54 @@ export function sampleProceduralPose(
         rightUpperArm: [-0.12, 0, 0.08],
       };
   }
+}
+
+export function sampleProceduralRoot(
+  preset: ProceduralPreset,
+  time: number,
+): ProceduralRootMotion {
+  const step = wave(time, 1.8);
+  const bounce = Math.abs(beat(time, 112));
+  if (preset === 'spin-celebration') {
+    return { position: [0, 0.05 * bounce, 0], yaw: time * 1.9 };
+  }
+  if (preset === 'juke-left-right') {
+    return { position: [0.16 * step, 0.04 * bounce, 0], yaw: -0.14 * step };
+  }
+  if (preset === 'side-shuffle' || preset === 'grapevine-step') {
+    return { position: [0.13 * step, 0.04 * bounce, 0], yaw: 0.08 * step };
+  }
+  if (
+    preset === 'running-man' ||
+    preset === 'griddy-celebration' ||
+    preset === 'charleston-step'
+  ) {
+    return { position: [0.05 * step, 0.07 * bounce, 0], yaw: 0.08 * step };
+  }
+  if (
+    preset === 'two-step' ||
+    preset === 'heel-toe-shuffle' ||
+    preset === 'moonwalk-glide' ||
+    preset === 'salsa-basic' ||
+    preset === 'disco-point' ||
+    preset === 'hip-hop-bounce' ||
+    preset === 'the-twist' ||
+    preset === 'jazz-square' ||
+    preset === 'box-step' ||
+    preset === 'mambo-step' ||
+    preset === 'cha-cha' ||
+    preset === 'arm-wave' ||
+    preset === 'freestyle-groove' ||
+    preset === 'robot-pop' ||
+    preset === 'body-wave'
+  ) {
+    return {
+      position: [0.07 * step, 0.045 * bounce, 0],
+      yaw: 0.1 * step,
+    };
+  }
+  return {
+    position: [0, 0.012 * Math.max(0, wave(time, 0.45)), 0],
+    yaw: 0,
+  };
 }

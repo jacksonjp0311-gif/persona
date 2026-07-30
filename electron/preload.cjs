@@ -5,6 +5,11 @@ const { contextBridge, ipcRenderer } = require("electron");
 contextBridge.exposeInMainWorld("personaBridge", {
   getSnapshot: () => ipcRenderer.invoke("persona:get-snapshot"),
   hide: () => ipcRenderer.send("persona:hide"),
+  startWindowDrag: (point) =>
+    ipcRenderer.send("persona:window-drag-start", point),
+  moveWindowDrag: (point) =>
+    ipcRenderer.send("persona:window-drag-move", point),
+  endWindowDrag: () => ipcRenderer.send("persona:window-drag-end"),
   subscribe: (listener) => {
     const handler = (_event, payload) => listener(payload);
     ipcRenderer.on("persona:event", handler);

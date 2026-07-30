@@ -300,6 +300,91 @@ button {
   background: transparent !important;
 }
 
+.overlay-chrome {
+  position: absolute;
+  z-index: 10;
+  inset: 0;
+  pointer-events: none;
+}
+
+.overlay-drag-surface {
+  position: absolute;
+  inset: 0;
+  cursor: grab;
+  pointer-events: auto;
+}
+
+.overlay-drag-surface:active {
+  cursor: grabbing;
+}
+
+.overlay-drag-hint {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px;
+  transform: translateX(-50%) translateY(-6px);
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: var(--r-full);
+  opacity: 0;
+  color: rgba(255, 255, 255, 0.8);
+  background: rgba(10, 11, 16, 0.58);
+  box-shadow: 0 5px 18px rgba(0, 0, 0, 0.2);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  transition:
+    opacity 180ms var(--ease),
+    transform 180ms var(--ease);
+  backdrop-filter: blur(8px);
+}
+
+.overlay-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: grid;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  place-items: center;
+  transform: translateY(-5px) scale(0.92);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--r-full);
+  opacity: 0.06;
+  color: white;
+  background: rgba(12, 13, 18, 0.7);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.24);
+  font-size: 22px;
+  line-height: 1;
+  transition:
+    opacity 180ms var(--ease),
+    transform 180ms var(--ease),
+    background 130ms var(--ease);
+  -webkit-app-region: no-drag;
+  pointer-events: auto;
+  backdrop-filter: blur(8px);
+}
+
+.app:hover .overlay-close,
+.overlay-close:focus-visible,
+.app:hover .overlay-drag-hint {
+  transform: translateX(0) translateY(0) scale(1);
+  opacity: 1;
+}
+
+.app:hover .overlay-drag-hint {
+  transform: translateX(-50%) translateY(0);
+}
+
+.overlay-close:hover {
+  border-color: rgba(255, 140, 155, 0.4);
+  background: rgba(185, 35, 59, 0.86);
+}
+
 /* 4. Settings shell ======================================================= */
 
 .settings-app {
@@ -1244,9 +1329,108 @@ button {
 /* --- Animation action cards ---------------------------------------------- */
 
 .animation-list {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
+}
+
+.action-dashboard {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.action-category-tabs {
+  display: flex;
+  gap: 5px;
+  padding: 4px;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--fill-sunken);
+}
+
+.action-category-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 5px 9px;
+  border: 0;
+  border-radius: var(--r-md);
+  color: var(--text-tertiary);
+  background: transparent;
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+}
+
+.action-category-tabs button:hover,
+.action-category-tabs button.selected {
+  color: var(--text-primary);
+  background: var(--bg-raised);
+}
+
+.action-category-tabs button.selected {
+  box-shadow: var(--shadow-card);
+}
+
+.action-category-tabs span {
+  min-width: 18px;
+  padding: 1px 5px;
+  border-radius: var(--r-full);
+  color: var(--text-tertiary);
+  background: var(--fill-subtle);
+  font-size: 10px;
+  text-align: center;
+}
+
+.action-cycle-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 10px;
+  border: 1px solid var(--accent-border);
+  border-radius: var(--r-lg);
+  background:
+    linear-gradient(115deg, var(--accent-soft), transparent 70%),
+    var(--bg-card);
+}
+
+.action-cycle-controls > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.action-cycle-controls strong {
+  color: var(--text-primary);
+  font-size: var(--fs-sm);
+}
+
+.action-cycle-controls span {
+  overflow: hidden;
+  color: var(--text-tertiary);
+  font-size: var(--fs-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.action-cycle-controls button {
+  min-height: 30px;
+  padding: 5px 9px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  color: var(--text-secondary);
+  background: var(--bg-raised);
+  font-size: var(--fs-sm);
+}
+
+.action-cycle-controls button:hover:not(:disabled),
+.action-cycle-controls button.cycling {
+  border-color: var(--accent-border);
+  color: var(--accent-text);
+  background: var(--accent-soft-hover);
 }
 
 .animation-card {
@@ -1265,7 +1449,7 @@ button {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: flex-start;
   gap: 14px;
-  padding: 14px;
+  padding: 12px;
 }
 
 .animation-card-copy {
@@ -1326,7 +1510,7 @@ button {
 }
 
 .animation-clips {
-  padding: 12px 14px 14px;
+  padding: 10px 12px 12px;
   border-top: 1px solid var(--border);
   background: var(--fill-sunken);
 }
@@ -2167,12 +2351,37 @@ button {
 }
 
 .preview-now-playing {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   min-width: 0;
   height: 76px;
-  flex-direction: column;
+  align-items: start;
+  gap: 8px;
   padding: 14px 2px 0;
   overflow: hidden;
+}
+
+.preview-now-playing > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.preview-now-playing > button {
+  min-height: 28px;
+  padding: 5px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  color: var(--text-secondary);
+  background: var(--bg-raised);
+  font-size: var(--fs-xs);
+}
+
+.preview-now-playing > button:hover,
+.preview-now-playing > button.active {
+  border-color: var(--accent-border);
+  color: var(--accent-text);
+  background: var(--accent-soft);
 }
 
 .preview-now-playing span {
@@ -2195,6 +2404,7 @@ button {
 }
 
 .preview-now-playing small {
+  grid-column: 1 / -1;
   overflow: hidden;
   margin-top: 2px;
   color: var(--text-tertiary);
@@ -2203,6 +2413,7 @@ button {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
 
 /* 8. Dialog =============================================================== */
 

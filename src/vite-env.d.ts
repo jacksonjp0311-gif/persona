@@ -109,6 +109,9 @@ interface Window {
   personaBridge?: {
     getSnapshot(): Promise<AvatarBridgeEvent | null>;
     hide(): void;
+    startWindowDrag(point: { x: number; y: number }): void;
+    moveWindowDrag(point: { x: number; y: number }): void;
+    endWindowDrag(): void;
     subscribe(listener: (event: AvatarBridgeEvent) => void): () => void;
   };
   personaSettings?: {
