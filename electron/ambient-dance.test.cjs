@@ -62,17 +62,20 @@ test("ambient dances run while idle or listening, not while speaking", () => {
   );
 });
 
-test("ambient dances use captured clips and procedural dances", () => {
+test("ambient dances only use procedural presets", () => {
   const candidates = ambientDanceCandidates([
-    dance("first"),
+    dance("clip-only"),
     dance("procedural-only", [], "freestyle-groove"),
     { ...dance("talk"), animation_type: "TALK" },
-    dance("second"),
+    dance("both", ["both.vrma"], "hip-hop-bounce"),
     dance("empty", [], null),
   ]);
   assert.deepEqual(
     candidates.map(({ id }) => id),
-    ["first", "procedural-only", "second"],
+    ["procedural-only", "both"],
   );
-  assert.equal(chooseAmbientDance(candidates, "first", () => 0).id, "procedural-only");
+  assert.equal(
+    chooseAmbientDance(candidates, "procedural-only", () => 0).id,
+    "both",
+  );
 });

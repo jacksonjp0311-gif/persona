@@ -28,6 +28,12 @@ import {
   SETTINGS_FALLBACK,
 } from './settings-defaults';
 import { resolveDeployedModels } from './crew-roster';
+import {
+  FEATURED_DANCE_IDS,
+  FEATURED_DANCE_LABELS,
+  dancePlaybackUrls,
+  isFeaturedDanceId,
+} from './dance-catalog';
 
 const INITIAL_STATE: VoiceState = {
   activity: 'idle',
@@ -37,12 +43,6 @@ const INITIAL_STATE: VoiceState = {
 };
 
 const BODY_IDLE_DELAY_MS = 650;
-
-function prettyDanceLabel(name: string): string {
-  return name
-    .replace(/[-_]+/g, ' ')
-    .replace(/\b\w/g, (char) => char.toUpperCase());
-}
 
 export function App() {
   const [voice, setVoice] = useState<VoiceState>(INITIAL_STATE);
@@ -112,24 +112,49 @@ export function App() {
   // Keep the desktop character dancing whenever it is not mid-speech.
   const ambientDanceAllowed = !speaking;
 
-  const danceOptions = useMemo<DanceOption[]>(
-    () =>
-      settings.animations
-        .filter(
-          (animation) =>
-            animation.animation_type === 'DANCE' &&
-            (animation.asset_urls.length > 0 ||
-              animation.procedural_preset != null),
-        )
-        .map((animation) => ({
+  const danceOptions = useMemo<DanceOption[]>(() => {
+    const byId = new Map(
+      settings.animations.map((animation) => [animation.id, animation]),
+    );
+    const featured = FEATURED_DANCE_IDS.flatMap((id) => {
+      const animation = byId.get(id);
+      if (!animation?.procedural_preset) return [];
+      return [
+        {
           id: animation.id,
-          label: prettyDanceLabel(animation.animation_name),
+          label: isFeaturedDanceId(animation.id)
+            ? FEATURED_DANCE_LABELS[animation.id]
+            : animation.animation_name,
           animationName: animation.animation_name,
-          animationUrls: animation.asset_urls,
+          // Prefer procedural for reliability on mixed VRM bodies.
+          animationUrls: dancePlaybackUrls(
+            animation.asset_urls,
+            animation.procedural_preset,
+          ),
           proceduralPreset: animation.procedural_preset,
-        })),
-    [settings.animations],
-  );
+        } satisfies DanceOption,
+      ];
+    });
+    if (featured.length > 0) return featured;
+    // Fallback if library is partial: first 8 procedural dances.
+    return settings.animations
+      .filter(
+        (animation) =>
+          animation.animation_type === 'DANCE' &&
+          animation.procedural_preset != null,
+      )
+      .slice(0, 8)
+      .map((animation) => ({
+        id: animation.id,
+        label: animation.animation_name,
+        animationName: animation.animation_name,
+        animationUrls: dancePlaybackUrls(
+          animation.asset_urls,
+          animation.procedural_preset,
+        ),
+        proceduralPreset: animation.procedural_preset,
+      }));
+  }, [settings.animations]);
 
   const applyUserDance = useCallback((dance: DanceOption) => {
     userDanceRequestId.current += 1;
@@ -137,7 +162,10 @@ export function App() {
     setBodyOverride({
       animation: 'DANCE',
       animationName: dance.animationName,
-      animationUrls: dance.animationUrls,
+      animationUrls: dancePlaybackUrls(
+        dance.animationUrls,
+        dance.proceduralPreset,
+      ),
       mirror: false,
       proceduralPreset: dance.proceduralPreset,
       requestId: userDanceRequestId.current,

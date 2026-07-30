@@ -38,13 +38,17 @@ function canPlayAmbientDance(voiceState) {
   );
 }
 
+/**
+ * Only procedural dances ambient-loop on the desktop avatar.
+ * Captured VRMA clips are too inconsistent across VRM skeletons.
+ */
 function ambientDanceCandidates(animations) {
   return animations.filter(
     (animation) =>
       animation.animation_type === "DANCE" &&
-      ((Array.isArray(animation.asset_urls) &&
-        animation.asset_urls.length > 0) ||
-        animation.procedural_preset != null),
+      animation.procedural_preset != null &&
+      typeof animation.procedural_preset === "string" &&
+      animation.procedural_preset.length > 0,
   );
 }
 

@@ -197,10 +197,16 @@ export function useVrmAnimation(vrm: VRM | null) {
       const generation = ++requestGeneration.current;
       pendingCompletion.current = null;
       try {
-        const url = randomAnimationUrl(
-          animationUrls,
-          previousAnimation.current.get(type) ?? null,
-        );
+        // Dances with a procedural preset always use procedural motion.
+        // Packaged VRMA clips often break facing/proportions on mixed VRM bodies.
+        const preferProceduralDance =
+          type === 'DANCE' && isProceduralPreset(proceduralPreset);
+        const url = preferProceduralDance
+          ? null
+          : randomAnimationUrl(
+              animationUrls,
+              previousAnimation.current.get(type) ?? null,
+            );
         if (!url) {
           if (isProceduralPreset(proceduralPreset)) {
             activateProcedural(

@@ -389,7 +389,7 @@ button {
   background: rgba(185, 35, 59, 0.86);
 }
 
-/* --- Fortnite-style dance wheel (hidden until hover) -------------------- */
+/* --- Glass dance wheel (8 slots, hover-only, fades out) ------------------ */
 
 .dance-selector {
   position: absolute;
@@ -401,74 +401,100 @@ button {
   flex-direction: column;
   align-items: center;
   justify-content: flex-end;
-  height: 46%;
+  height: 42%;
   pointer-events: none;
 }
 
 .dance-selector-hotzone {
   position: absolute;
-  right: 12%;
-  bottom: 0;
-  left: 12%;
-  height: 28%;
+  z-index: 2;
+  right: 22%;
+  bottom: 6px;
+  left: 22%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  height: 22%;
   pointer-events: auto;
+}
+
+.dance-selector-pill {
+  padding: 5px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  opacity: 0.55;
+  color: rgba(255, 255, 255, 0.78);
+  background: rgba(12, 14, 22, 0.28);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  backdrop-filter: blur(10px);
+  transition:
+    opacity 220ms var(--ease),
+    transform 220ms var(--ease);
+}
+
+.dance-selector.is-open .dance-selector-pill {
+  opacity: 0;
+  transform: translateY(6px);
+  pointer-events: none;
 }
 
 .dance-selector-panel {
   position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: min(100%, 360px);
-  padding-bottom: 10px;
+  width: min(100%, 300px);
+  padding-bottom: 18px;
   opacity: 0;
-  transform: translateY(18px) scale(0.92);
+  transform: translateY(22px) scale(0.9);
   transition:
-    opacity 180ms var(--ease),
-    transform 180ms var(--ease);
+    opacity 280ms var(--ease),
+    transform 280ms var(--ease);
   pointer-events: none;
 }
 
-.dance-selector.is-open .dance-selector-panel,
-.dance-selector:focus-within .dance-selector-panel,
-.app:hover .dance-selector-panel {
+.dance-selector.is-open .dance-selector-panel {
   opacity: 1;
   transform: translateY(0) scale(1);
   pointer-events: auto;
 }
 
+.dance-selector.is-closed .dance-selector-panel {
+  opacity: 0;
+  transform: translateY(18px) scale(0.92);
+  pointer-events: none;
+}
+
 .dance-wheel {
   position: relative;
-  width: 250px;
-  height: 250px;
+  width: 220px;
+  height: 220px;
   isolation: isolate;
 }
 
 .dance-wheel-ring {
   position: absolute;
-  inset: 28px;
+  inset: 34px;
   z-index: -1;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 50%;
   background:
     radial-gradient(
       circle at center,
-      rgba(56, 189, 248, 0.12) 0 28%,
-      transparent 30% 52%,
-      rgba(168, 85, 247, 0.1) 54% 68%,
-      transparent 70%
+      rgba(56, 189, 248, 0.08) 0 30%,
+      transparent 32% 58%,
+      rgba(168, 85, 247, 0.07) 60% 72%,
+      transparent 74%
     ),
-    conic-gradient(
-      from 0deg,
-      rgba(56, 189, 248, 0.35),
-      rgba(168, 85, 247, 0.32),
-      rgba(251, 113, 133, 0.28),
-      rgba(56, 189, 248, 0.35)
-    );
+    rgba(10, 12, 18, 0.22);
   box-shadow:
-    inset 0 0 0 10px rgba(8, 10, 16, 0.72),
-    0 0 36px rgba(56, 189, 248, 0.16);
-  backdrop-filter: blur(10px);
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05),
+    0 12px 36px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(14px) saturate(1.15);
 }
 
 .dance-wheel-item {
@@ -479,54 +505,55 @@ button {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  width: 58px;
-  min-height: 54px;
+  width: 52px;
+  min-height: 48px;
   padding: 4px 3px 5px;
-  transform: translate(-50%, -50%) rotate(var(--dance-angle)) translateY(-96px)
+  transform: translate(-50%, -50%) rotate(var(--dance-angle)) translateY(-84px)
     rotate(calc(-1 * var(--dance-angle)));
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 14px;
-  color: rgba(255, 255, 255, 0.86);
-  background: rgba(12, 14, 20, 0.78);
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.28);
-  backdrop-filter: blur(10px);
+  color: rgba(255, 255, 255, 0.9);
+  background: rgba(16, 18, 28, 0.38);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(12px) saturate(1.2);
   transition:
-    border-color 130ms var(--ease),
-    background 130ms var(--ease),
-    box-shadow 130ms var(--ease),
-    transform 130ms var(--ease);
+    border-color 150ms var(--ease),
+    background 150ms var(--ease),
+    box-shadow 150ms var(--ease),
+    opacity 150ms var(--ease);
 }
 
 .dance-wheel-item:hover,
 .dance-wheel-item.focused {
-  border-color: rgba(56, 189, 248, 0.55);
-  background: rgba(24, 32, 48, 0.9);
+  border-color: rgba(56, 189, 248, 0.5);
+  background: rgba(24, 32, 48, 0.52);
   box-shadow:
-    0 10px 22px rgba(0, 0, 0, 0.32),
-    0 0 0 2px rgba(56, 189, 248, 0.18);
+    0 10px 22px rgba(0, 0, 0, 0.26),
+    0 0 0 2px rgba(56, 189, 248, 0.12);
 }
 
 .dance-wheel-item.selected {
-  border-color: rgba(168, 85, 247, 0.75);
-  background: linear-gradient(
-    160deg,
-    rgba(56, 189, 248, 0.28),
-    rgba(168, 85, 247, 0.34)
-  );
+  border-color: rgba(168, 85, 247, 0.55);
+  background: rgba(88, 48, 140, 0.38);
   box-shadow:
-    0 10px 24px rgba(0, 0, 0, 0.34),
-    0 0 18px rgba(168, 85, 247, 0.35);
+    0 10px 24px rgba(0, 0, 0, 0.28),
+    0 0 16px rgba(168, 85, 247, 0.22);
 }
 
 .dance-wheel-glyph {
   display: grid;
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   margin-bottom: 2px;
   place-items: center;
   border-radius: 8px;
   color: white;
-  background: linear-gradient(135deg, #38bdf8, #a855f7 70%, #fb7185);
+  background: linear-gradient(
+    135deg,
+    rgba(56, 189, 248, 0.85),
+    rgba(168, 85, 247, 0.8) 70%,
+    rgba(251, 113, 133, 0.75)
+  );
   font-size: 9px;
   font-weight: 800;
   letter-spacing: 0.03em;
@@ -534,7 +561,7 @@ button {
 
 .dance-wheel-label {
   display: -webkit-box;
-  max-width: 52px;
+  max-width: 46px;
   overflow: hidden;
   font-size: 8px;
   font-weight: 650;
@@ -552,63 +579,50 @@ button {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  width: 88px;
-  height: 88px;
+  width: 76px;
+  height: 76px;
   padding: 8px;
   transform: translate(-50%, -50%);
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 50%;
   color: white;
   background:
     radial-gradient(
       circle at 35% 30%,
-      rgba(56, 189, 248, 0.28),
-      transparent 55%
+      rgba(56, 189, 248, 0.18),
+      transparent 58%
     ),
-    rgba(10, 12, 18, 0.88);
+    rgba(12, 14, 22, 0.42);
   box-shadow:
-    0 10px 28px rgba(0, 0, 0, 0.35),
+    0 10px 28px rgba(0, 0, 0, 0.28),
     inset 0 0 0 1px rgba(255, 255, 255, 0.06);
   text-align: center;
-  backdrop-filter: blur(12px);
+  backdrop-filter: blur(14px) saturate(1.2);
 }
 
 .dance-wheel-core.selected {
-  border-color: rgba(56, 189, 248, 0.65);
+  border-color: rgba(56, 189, 248, 0.5);
   box-shadow:
-    0 0 24px rgba(56, 189, 248, 0.28),
-    0 10px 28px rgba(0, 0, 0, 0.35);
+    0 0 20px rgba(56, 189, 248, 0.18),
+    0 10px 28px rgba(0, 0, 0, 0.28);
 }
 
 .dance-wheel-core strong {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.08em;
 }
 
 .dance-wheel-core small {
   display: block;
-  max-width: 72px;
+  max-width: 64px;
   overflow: hidden;
   margin-top: 2px;
-  color: rgba(255, 255, 255, 0.72);
+  color: rgba(255, 255, 255, 0.7);
   font-size: 9px;
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.dance-selector-hint {
-  margin: 8px 0 0;
-  padding: 3px 10px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: var(--r-full);
-  color: rgba(255, 255, 255, 0.72);
-  background: rgba(10, 12, 18, 0.55);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  backdrop-filter: blur(8px);
 }
 
 /* 4. Settings shell ======================================================= */

@@ -1,4 +1,11 @@
-import { useMemo, useState, type CSSProperties, type WheelEvent } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type WheelEvent,
+} from 'react';
 
 export interface DanceOption {
   id: string;
@@ -15,6 +22,9 @@ interface DanceSelectorProps {
   onUnlockAuto: () => void;
 }
 
+const FADE_OUT_MS = 420;
+const MAX_WHEEL_DANCES = 8;
+
 function initials(label: string): string {
   const parts = label.trim().split(/[\s-_]+/).filter(Boolean);
   if (parts.length === 0) return '♪';
@@ -28,19 +38,46 @@ export function DanceSelector({
   onLockDance,
   onUnlockAuto,
 }: DanceSelectorProps) {
-  const [hovered, setHovered] = useState(false);
+  const [open, setOpen] = useState(false);
   const [focusIndex, setFocusIndex] = useState(0);
+  const closeTimer = useRef<number | null>(null);
 
-  const items = useMemo(() => dances.slice(0, 16), [dances]);
+  const items = useMemo(
+    () => dances.slice(0, MAX_WHEEL_DANCES),
+    [dances],
+  );
   const activeIndex = useMemo(() => {
     if (lockedDanceId == null) return -1;
     return items.findIndex((dance) => dance.id === lockedDanceId);
   }, [items, lockedDanceId]);
 
+  const clearCloseTimer = () => {
+    if (closeTimer.current != null) {
+      window.clearTimeout(closeTimer.current);
+      closeTimer.current = null;
+    }
+  };
+
+  const openWheel = () => {
+    clearCloseTimer();
+    setOpen(true);
+  };
+
+  const scheduleClose = () => {
+    clearCloseTimer();
+    closeTimer.current = window.setTimeout(() => {
+      setOpen(false);
+      closeTimer.current = null;
+    }, FADE_OUT_MS);
+  };
+
+  useEffect(() => () => clearCloseTimer(), []);
+
   const handleWheel = (event: WheelEvent<HTMLDivElement>) => {
     if (items.length === 0) return;
     event.preventDefault();
     event.stopPropagation();
+    openWheel();
     const direction = event.deltaY > 0 ? 1 : -1;
     const base = activeIndex >= 0 ? activeIndex : focusIndex;
     const next = (base + direction + items.length) % items.length;
@@ -48,20 +85,27 @@ export function DanceSelector({
     onLockDance(items[next]);
   };
 
+  const lockedLabel =
+    items.find((dance) => dance.id === lockedDanceId)?.label ?? 'Locked';
+
   return (
     <div
       aria-label="Dance selector"
-      className={`dance-selector ${hovered ? 'is-open' : ''}`}
+      className={`dance-selector ${open ? 'is-open' : 'is-closed'}`}
       data-persona-interactive="dance"
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      onMouseEnter={openWheel}
+      onMouseLeave={scheduleClose}
       onWheel={handleWheel}
       role="toolbar"
     >
-      <div className="dance-selector-hotzone" aria-hidden="true" />
-      <div className="dance-selector-panel">
-        <div className="dance-wheel" aria-hidden={!hovered}>
-          <div className="dance-wheel-ring" />
+      <div className="dance-selector-hotzone" aria-hidden="true">
+        <span className="dance-selector-pill">
+          {open ? 'Pick a dance' : 'Hover · dances'}
+        </span>
+      </div>
+      <div className="dance-selector-panel" aria-hidden={!open}>
+        <div className="dance-wheel">
+          <div className="dance-wheel-ring" aria-hidden="true" />
           {items.map((dance, index) => {
             const angle = (index / Math.max(items.length, 1)) * 360 - 90;
             const selected = dance.id === lockedDanceId;
@@ -109,16 +153,10 @@ export function DanceSelector({
           >
             <strong>{lockedDanceId == null ? 'AUTO' : '♪'}</strong>
             <small>
-              {lockedDanceId == null
-                ? 'Shuffle'
-                : items.find((dance) => dance.id === lockedDanceId)?.label ??
-                  'Locked'}
+              {lockedDanceId == null ? 'Shuffle' : lockedLabel}
             </small>
           </button>
         </div>
-        <p className="dance-selector-hint">
-          Hover · click a move · scroll to cycle
-        </p>
       </div>
     </div>
   );
