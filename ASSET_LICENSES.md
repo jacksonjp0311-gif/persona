@@ -27,6 +27,21 @@ format, mapped the source humanoid bones to VRM humanoid bone names, and changed
 the container format to binary glTF. These adapted animation files remain
 licensed under CC BY-SA 4.0.
 
+## Quaternius Universal Animation Library
+
+Persona includes adapted clips from Quaternius' Universal Animation Library 1
+and 2. Both source packs are released under Creative Commons Zero 1.0 and may
+be used in personal and commercial projects.
+
+Sources:
+
+- https://quaternius.itch.io/universal-animation-library
+- https://quaternius.itch.io/universal-animation-library-2
+
+Persona extracted selected authored clips, retimed them for short desktop
+emotes, mapped the source humanoid rig to VRM humanoid bone names, normalized
+root travel, and converted the container to VRM Animation binary glTF.
+
 ## Local development media
 
 VRM and VRMA files are intentionally ignored by Git. Any local files without a

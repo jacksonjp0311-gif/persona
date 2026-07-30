@@ -191,7 +191,9 @@
       "animation_trigger_scenario": "Used automatically while Persona is waiting and not speaking.",
       "animation_type": "IDLE",
       "procedural_preset": "breathing-idle",
-      "asset_paths": []
+      "asset_paths": [
+        "animations/quaternius-idle.vrma"
+      ]
     },
     {
       "id": "system-speaking",
@@ -200,7 +202,9 @@
       "animation_trigger_scenario": "Used automatically while supported voice output is active.",
       "animation_type": "TALK",
       "procedural_preset": "conversational-talk",
-      "asset_paths": []
+      "asset_paths": [
+        "animations/quaternius-talking.vrma"
+      ]
     },
     {
       "id": "nfl-quarterback-throw",
@@ -209,7 +213,9 @@
       "animation_trigger_scenario": "Use for a pass, launch, decisive handoff, or big reveal.",
       "animation_type": null,
       "procedural_preset": "quarterback-throw",
-      "asset_paths": []
+      "asset_paths": [
+        "animations/quaternius-quarterback-release.vrma"
+      ]
     },
     {
       "id": "nfl-receiver-catch",
@@ -281,7 +287,9 @@
       "animation_trigger_scenario": "Use for a personal best, win, or powerful result.",
       "animation_type": "HAPPY",
       "procedural_preset": "victory-flex",
-      "asset_paths": []
+      "asset_paths": [
+        "animations/quaternius-chest-open.vrma"
+      ]
     },
     {
       "id": "nfl-griddy-celebration",
@@ -299,7 +307,9 @@
       "animation_trigger_scenario": "Use as an easy social dance or idle celebration.",
       "animation_type": "DANCE",
       "procedural_preset": "two-step",
-      "asset_paths": []
+      "asset_paths": [
+        "animations/quaternius-power-groove.vrma"
+      ]
     },
     {
       "id": "dance-running-man",
@@ -485,7 +495,9 @@
       "animation_trigger_scenario": "Use while clarifying a concept or presenting options.",
       "animation_type": null,
       "procedural_preset": "open-hand-explain",
-      "asset_paths": []
+      "asset_paths": [
+        "animations/quaternius-interact.vrma"
+      ]
     },
     {
       "id": "talk-thoughtful-nod",
@@ -503,7 +515,9 @@
       "animation_trigger_scenario": "Use to show strong agreement or confirmation.",
       "animation_type": null,
       "procedural_preset": "agree-enthusiastic",
-      "asset_paths": []
+      "asset_paths": [
+        "animations/quaternius-enthusiastic-yes.vrma"
+      ]
     },
     {
       "id": "talk-disagree-shake",
@@ -548,7 +562,9 @@
       "animation_trigger_scenario": "Use while waiting for the user or receiving instructions.",
       "animation_type": null,
       "procedural_preset": "calm-listen",
-      "asset_paths": []
+      "asset_paths": [
+        "animations/quaternius-folded-arms.vrma"
+      ]
     }
   ]
 }

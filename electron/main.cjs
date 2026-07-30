@@ -821,8 +821,7 @@ if (!app.requestSingleInstanceLock()) {
           .getSnapshot()
           .animations.filter(
             (animation) =>
-              animation.asset_urls.length > 0 ||
-              animation.procedural_preset != null,
+              animation.asset_urls.length > 0,
           ),
     });
     bridge = createBridgeServer({

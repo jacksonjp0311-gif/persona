@@ -42,6 +42,12 @@ describe('animation playback configuration', () => {
     expect(action.clampWhenFinished).toBe(false);
   });
 
+  it('applies an explicit emote playback rate', () => {
+    const { action } = createAction();
+    configureAnimationAction(action, 'once', 1.25);
+    expect(action.getEffectiveTimeScale()).toBe(1.25);
+  });
+
   it('interpolates outgoing and incoming action weights during replacement', () => {
     const mixer = new THREE.AnimationMixer(new THREE.Object3D());
     const previous = mixer.clipAction(
@@ -60,5 +66,14 @@ describe('animation playback configuration', () => {
     mixer.update(0.5);
     expect(previous.getEffectiveWeight()).toBeCloseTo(0, 5);
     expect(next.getEffectiveWeight()).toBeCloseTo(1, 5);
+  });
+
+  it('starts the first available clip at full weight without exposing bind pose', () => {
+    const { action } = createAction(2);
+
+    crossFadeAnimationActions(null, action, 0.25);
+
+    expect(action.isRunning()).toBe(true);
+    expect(action.getEffectiveWeight()).toBe(1);
   });
 });

@@ -236,6 +236,54 @@
       "role": "animation",
       "license": "CC-BY-SA-4.0",
       "source": "https://visgraflab.impa.br/dance/wp-content/uploads/2023/09/ondula-vale.bvh"
+    },
+    {
+      "path": "animations/quaternius-idle.vrma",
+      "role": "animation",
+      "license": "CC0-1.0",
+      "source": "https://quaternius.itch.io/universal-animation-library"
+    },
+    {
+      "path": "animations/quaternius-talking.vrma",
+      "role": "animation",
+      "license": "CC0-1.0",
+      "source": "https://quaternius.itch.io/universal-animation-library"
+    },
+    {
+      "path": "animations/quaternius-power-groove.vrma",
+      "role": "animation",
+      "license": "CC0-1.0",
+      "source": "https://quaternius.itch.io/universal-animation-library"
+    },
+    {
+      "path": "animations/quaternius-interact.vrma",
+      "role": "animation",
+      "license": "CC0-1.0",
+      "source": "https://quaternius.itch.io/universal-animation-library"
+    },
+    {
+      "path": "animations/quaternius-enthusiastic-yes.vrma",
+      "role": "animation",
+      "license": "CC0-1.0",
+      "source": "https://quaternius.itch.io/universal-animation-library-2"
+    },
+    {
+      "path": "animations/quaternius-chest-open.vrma",
+      "role": "animation",
+      "license": "CC0-1.0",
+      "source": "https://quaternius.itch.io/universal-animation-library-2"
+    },
+    {
+      "path": "animations/quaternius-quarterback-release.vrma",
+      "role": "animation",
+      "license": "CC0-1.0",
+      "source": "https://quaternius.itch.io/universal-animation-library"
+    },
+    {
+      "path": "animations/quaternius-folded-arms.vrma",
+      "role": "animation",
+      "license": "CC0-1.0",
+      "source": "https://quaternius.itch.io/universal-animation-library-2"
     }
   ]
 }

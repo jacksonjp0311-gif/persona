@@ -335,18 +335,25 @@ export function SettingsPage() {
     if (previewAnimation) return previewAnimation.animation_name;
     return 'Character preview';
   }, [previewAnimation, previewClip]);
+  const professionalAnimations = useMemo(
+    () =>
+      settings.animations.filter(
+        (animation) => animation.system || animation.clips.length > 0,
+      ),
+    [settings.animations],
+  );
   const visibleAnimations = useMemo(
     () =>
       actionFilter === 'all'
-        ? settings.animations
+        ? professionalAnimations
         : actionFilter === 'captured'
-          ? settings.animations.filter(
+          ? professionalAnimations.filter(
               (animation) => animation.clips.length > 0,
             )
-        : settings.animations.filter(
-            (animation) => actionCategory(animation) === actionFilter,
-          ),
-    [actionFilter, settings.animations],
+          : professionalAnimations.filter(
+              (animation) => actionCategory(animation) === actionFilter,
+            ),
+    [actionFilter, professionalAnimations],
   );
   const actionCategoryCounts = useMemo(
     () =>
@@ -354,17 +361,17 @@ export function SettingsPage() {
         ACTION_CATEGORIES.map(({ id }) => [
           id,
           id === 'all'
-            ? settings.animations.length
+            ? professionalAnimations.length
             : id === 'captured'
-              ? settings.animations.filter(
-                  (animation) => animation.clips.length > 0,
-                ).length
-            : settings.animations.filter(
-                (animation) => actionCategory(animation) === id,
-              ).length,
+                ? professionalAnimations.filter(
+                    (animation) => animation.clips.length > 0,
+                  ).length
+                : professionalAnimations.filter(
+                    (animation) => actionCategory(animation) === id,
+                  ).length,
         ]),
       ) as Record<ActionCategory, number>,
-    [settings.animations],
+    [professionalAnimations],
   );
 
   const updateSnapshot = useCallback((snapshot: PersonaSettingsSnapshot) => {
@@ -726,7 +733,7 @@ export function SettingsPage() {
         playProceduralAnimation(cycleCandidates[next]);
         return next;
       });
-    }, 4800);
+    }, 3200);
     return () => window.clearInterval(timer);
   }, [cycleActions, cycleCandidates, playProceduralAnimation]);
 

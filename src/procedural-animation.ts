@@ -71,6 +71,22 @@ export interface ProceduralRootMotion {
   yaw: number;
 }
 
+export const RELAXED_REST_POSE: Readonly<ProceduralPose> = {
+  hips: [0.02, 0, 0],
+  spine: [-0.015, 0, 0],
+  chest: [-0.025, 0, 0],
+  neck: [0.015, 0, 0],
+  head: [0.02, 0, 0],
+  leftUpperArm: [-0.08, 0.04, -1.02],
+  leftLowerArm: [-0.16, -0.04, -0.03],
+  rightUpperArm: [-0.08, -0.04, 1.02],
+  rightLowerArm: [-0.16, 0.04, 0.03],
+  leftUpperLeg: [0.035, 0, -0.015],
+  leftLowerLeg: [-0.07, 0, 0],
+  rightUpperLeg: [0.035, 0, 0.015],
+  rightLowerLeg: [-0.07, 0, 0],
+};
+
 const TAU = Math.PI * 2;
 const clamp = (value: number, low = 0, high = 1) =>
   Math.min(high, Math.max(low, value));
@@ -140,10 +156,13 @@ export function proceduralBlendWeight(
   duration: number,
   playback: 'loop' | 'once',
 ): number {
-  const enter = ease(elapsed / 0.3);
-  if (playback === 'loop') return enter;
-  const exit = ease((duration - elapsed) / 0.38);
-  return Math.min(enter, exit);
+  void elapsed;
+  void duration;
+  void playback;
+  // Procedural animation is the resilient fallback path. Returning full
+  // weight prevents a model's imported bind pose from leaking through while
+  // an authored VRMA clip loads or after a one-shot finishes.
+  return 1;
 }
 
 export function sampleProceduralPose(
@@ -161,19 +180,19 @@ export function sampleProceduralPose(
         spine: [0.018 * wave(time, 0.22), -0.035 * sway, 0],
         chest: [0.035 * wave(time, 0.22), -0.04 * sway, 0.035 * sway],
         head: [0.035 * wave(time, 0.17), 0.07 * sway, -0.02 * sway],
-        leftUpperArm: [-0.06, 0, -0.07 - 0.035 * sway],
-        rightUpperArm: [-0.06, 0, 0.07 - 0.035 * sway],
-        leftLowerArm: [-0.08 - 0.03 * sway, 0, 0],
-        rightLowerArm: [-0.08 + 0.03 * sway, 0, 0],
+        leftUpperArm: [-0.08, 0.04, -1.02 - 0.025 * sway],
+        rightUpperArm: [-0.08, -0.04, 1.02 - 0.025 * sway],
+        leftLowerArm: [-0.16 - 0.025 * sway, -0.04, -0.03],
+        rightLowerArm: [-0.16 + 0.025 * sway, 0.04, 0.03],
       };
     case 'conversational-talk':
       return {
         hips: [0, 0.035 * sway, 0],
         chest: [0.035 * wave(time, 0.7), 0.06 * sway, 0.025 * b],
         head: [0.05 * wave(time, 0.8), -0.045 * sway, 0],
-        leftUpperArm: [-0.18 + 0.12 * b, 0, -0.18],
+        leftUpperArm: [-0.18 + 0.12 * b, 0.04, -0.92],
         leftLowerArm: [-0.5 - 0.18 * wave(time, 0.9), 0, 0],
-        rightUpperArm: [-0.16 - 0.12 * b, 0, 0.2],
+        rightUpperArm: [-0.16 - 0.12 * b, -0.04, 0.92],
         rightLowerArm: [-0.55 + 0.2 * wave(time, 1.1), 0, 0],
       };
     case 'quarterback-throw': {

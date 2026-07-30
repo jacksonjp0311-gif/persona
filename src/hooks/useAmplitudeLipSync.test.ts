@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { lipSyncTargets } from './useAmplitudeLipSync';
+import {
+  characterMouthSeed,
+  lipSyncTargets,
+} from './useAmplitudeLipSync';
 
 describe('lip sync targets', () => {
   it('opens the mouth while speaking even without a captured level', () => {
@@ -16,5 +19,18 @@ describe('lip sync targets', () => {
     expect(Object.values(lipSyncTargets(1, 1, false))).toEqual([
       0, 0, 0, 0, 0,
     ]);
+  });
+
+  it('uses different phoneme orders for different characters', () => {
+    const first = lipSyncTargets(2.3, 0.12, true, 0.05);
+    const second = lipSyncTargets(2.3, 0.12, true, 0.8);
+    expect(first).not.toEqual(second);
+  });
+
+  it('produces a stable per-character mouth seed', () => {
+    expect(characterMouthSeed('Witch')).toBe(characterMouthSeed('Witch'));
+    expect(characterMouthSeed('Witch')).not.toBe(
+      characterMouthSeed('Polydancer'),
+    );
   });
 });

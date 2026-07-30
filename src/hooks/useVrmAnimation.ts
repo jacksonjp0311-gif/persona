@@ -18,6 +18,7 @@ import {
 } from '../animation-action';
 import {
   PROCEDURAL_DURATIONS,
+  RELAXED_REST_POSE,
   isProceduralPreset,
   proceduralBlendWeight,
   sampleProceduralPose,
@@ -39,13 +40,22 @@ interface PendingCompletion {
   generation: number;
 }
 
-function transitionSeconds(
+export function transitionSeconds(
   previous: PlayableAnimationType | null,
   next: PlayableAnimationType,
 ): number {
-  if (previous === 'TALK' && next === 'IDLE') return 1.15;
-  if (next === 'TALK') return 0.85;
-  return 0.7;
+  if (previous === 'TALK' && next === 'IDLE') return 0.32;
+  if (next === 'TALK') return 0.28;
+  return 0.2;
+}
+
+export function playbackRate(
+  type: PlayableAnimationType,
+  playback: AnimationPlayback,
+): number {
+  if (type === 'IDLE') return 0.96;
+  if (type === 'TALK') return 1.08;
+  return playback === 'once' ? 1.25 : 1.12;
 }
 
 export function useVrmAnimation(vrm: VRM | null) {
@@ -63,6 +73,7 @@ export function useVrmAnimation(vrm: VRM | null) {
     onComplete?: () => void;
     playback: AnimationPlayback;
     preset: ProceduralPreset;
+    completed: boolean;
   } | null>(null);
   const proceduralBones = useRef(
     new Map<
@@ -85,6 +96,29 @@ export function useVrmAnimation(vrm: VRM | null) {
     }
     procedural.current = null;
   }, [vrm]);
+
+  const activateProcedural = useCallback(
+    (
+      type: PlayableAnimationType,
+      preset: ProceduralPreset,
+      playback: AnimationPlayback,
+      onComplete?: () => void,
+    ) => {
+      current.current?.fadeOut(
+        transitionSeconds(currentType.current, type),
+      );
+      current.current = null;
+      currentType.current = type;
+      procedural.current = {
+        completed: false,
+        elapsed: 0,
+        onComplete,
+        playback,
+        preset,
+      };
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!vrm) return;
@@ -164,20 +198,14 @@ export function useVrmAnimation(vrm: VRM | null) {
         );
         if (!url) {
           if (isProceduralPreset(proceduralPreset)) {
-            current.current?.fadeOut(
-              transitionSeconds(currentType.current, type),
-            );
-            current.current = null;
-            currentType.current = type;
-            procedural.current = {
-              elapsed: 0,
-              onComplete,
+            activateProcedural(
+              type,
+              proceduralPreset,
               playback,
-              preset: proceduralPreset,
-            };
+              onComplete,
+            );
             return;
           }
-          restoreProceduralPose();
           const fadeSeconds = transitionSeconds(currentType.current, type);
           current.current?.fadeOut(fadeSeconds);
           current.current = null;
@@ -185,14 +213,22 @@ export function useVrmAnimation(vrm: VRM | null) {
           if (playback === 'once') onComplete?.();
           return;
         }
-        restoreProceduralPose();
         previousAnimation.current.set(type, url);
+        if (
+          !current.current &&
+          !procedural.current &&
+          isProceduralPreset(proceduralPreset)
+        ) {
+          activateProcedural(type, proceduralPreset, 'loop');
+        }
         const animation = await load(url);
         if (generation !== requestGeneration.current || !mixer.current) return;
+        const previousAction = current.current;
+        restoreProceduralPose();
         const action = mixer.current.clipAction(createVRMAnimationClip(animation, vrm));
         const fadeSeconds = transitionSeconds(currentType.current, type);
         action.reset();
-        configureAnimationAction(action, playback);
+        configureAnimationAction(action, playback, playbackRate(type, playback));
         if (playback === 'once') {
           if (onComplete) {
             pendingCompletion.current = {
@@ -202,17 +238,26 @@ export function useVrmAnimation(vrm: VRM | null) {
             };
           }
         }
-        crossFadeAnimationActions(current.current, action, fadeSeconds);
+        crossFadeAnimationActions(previousAction, action, fadeSeconds);
+        mixer.current.update(0);
         current.current = action;
         currentType.current = type;
       } catch (error) {
         console.warn('[persona] animation load failed', error);
-        if (generation === requestGeneration.current && playback === 'once') {
+        if (generation !== requestGeneration.current) return;
+        if (isProceduralPreset(proceduralPreset)) {
+          activateProcedural(
+            type,
+            proceduralPreset,
+            playback,
+            onComplete,
+          );
+        } else if (playback === 'once') {
           onComplete?.();
         }
       }
     },
-    [load, restoreProceduralPose, vrm],
+    [activateProcedural, load, restoreProceduralPose, vrm],
   );
 
   const update = useCallback(
@@ -227,7 +272,10 @@ export function useVrmAnimation(vrm: VRM | null) {
         active.playback === 'loop'
           ? active.elapsed % duration
           : Math.min(active.elapsed, duration);
-      const pose = sampleProceduralPose(active.preset, sampleTime);
+      const pose = {
+        ...RELAXED_REST_POSE,
+        ...sampleProceduralPose(active.preset, sampleTime),
+      };
       const weight = proceduralBlendWeight(
         active.elapsed,
         duration,
@@ -274,13 +322,16 @@ export function useVrmAnimation(vrm: VRM | null) {
           .slerp(targetRootRotation, weight);
       }
 
-      if (active.playback === 'once' && active.elapsed >= duration) {
-        const callback = active.onComplete;
-        restoreProceduralPose();
-        callback?.();
+      if (
+        active.playback === 'once' &&
+        active.elapsed >= duration &&
+        !active.completed
+      ) {
+        active.completed = true;
+        active.onComplete?.();
       }
     },
-    [restoreProceduralPose, vrm],
+    [vrm],
   );
   return { play, update };
 }

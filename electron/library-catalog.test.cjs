@@ -18,7 +18,7 @@ function execSync(_command, { cwd }) {
   );
 }
 
-test("keeps permanent system actions in the expanded packaged library", () => {
+test("keeps permanent captured rest actions in the packaged library", () => {
   // Read the committed blob so the guard survives local uncommitted edits
   // (e.g. the documented `cp library.json.example library.json` setup step).
   const repoRoot = path.join(__dirname, "..");
@@ -54,13 +54,13 @@ test("keeps permanent system actions in the expanded packaged library", () => {
         id: "system-idle",
         animation_name: "idle",
         animation_type: "IDLE",
-        asset_paths: [],
+        asset_paths: ["animations/quaternius-idle.vrma"],
       },
       {
         id: "system-speaking",
         animation_name: "speaking",
         animation_type: "TALK",
-        asset_paths: [],
+        asset_paths: ["animations/quaternius-talking.vrma"],
       },
     ],
   );

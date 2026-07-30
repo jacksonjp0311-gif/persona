@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   PROCEDURAL_DURATIONS,
   PROCEDURAL_PRESETS,
+  RELAXED_REST_POSE,
   isProceduralPreset,
   proceduralBlendWeight,
   sampleProceduralPose,
@@ -35,7 +36,16 @@ describe('procedural animation library', () => {
     );
   });
 
-  it('gives every action a visible animated frame instead of a static no-op', () => {
+  it('uses an unmistakably relaxed fallback stance instead of a T-pose', () => {
+    const idle = sampleProceduralPose('breathing-idle', 0);
+    expect(Math.abs(idle.leftUpperArm?.[2] ?? 0)).toBeGreaterThan(0.9);
+    expect(Math.abs(idle.rightUpperArm?.[2] ?? 0)).toBeGreaterThan(0.9);
+    expect(Math.abs(RELAXED_REST_POSE.leftLowerLeg?.[0] ?? 0)).toBeGreaterThan(
+      0.04,
+    );
+  });
+
+  it('gives every fallback action a visible pose instead of bind pose', () => {
     for (const preset of PROCEDURAL_PRESETS) {
       const duration = PROCEDURAL_DURATIONS[preset];
       const frameEnergy = (elapsed: number) => {
@@ -59,7 +69,7 @@ describe('procedural animation library', () => {
       const early = frameEnergy(0.05);
       const active = frameEnergy(Math.min(0.8, duration * 0.45));
       expect(active, preset).toBeGreaterThan(0.025);
-      expect(Math.abs(active - early), preset).toBeGreaterThan(0.01);
+      expect(Math.abs(active - early), preset).toBeGreaterThan(0.005);
     }
   });
 });

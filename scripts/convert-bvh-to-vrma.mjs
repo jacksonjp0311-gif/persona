@@ -2,9 +2,15 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { Vector3 } from "three";
+import { pathToFileURL } from "node:url";
+import * as THREE from "three";
 import { BVHLoader } from "three/examples/jsm/loaders/BVHLoader.js";
 import { GLTFExporter } from "three/examples/jsm/exporters/GLTFExporter.js";
+import {
+  cleanMotionClip,
+  MOTION_CLEANUP_PROFILES,
+  motionJerkMetrics,
+} from "./motion-cleanup.mjs";
 
 class FileReaderPolyfill {
   readAsArrayBuffer(blob) {
@@ -102,12 +108,63 @@ function detectScale(root) {
   if (!head || !hips) return 1;
   root.updateWorldMatrix(true, true);
   const height = Math.abs(
-    head.getWorldPosition(new Vector3()).y - hips.getWorldPosition(new Vector3()).y,
+    head.getWorldPosition(new THREE.Vector3()).y -
+      hips.getWorldPosition(new THREE.Vector3()).y,
   );
   return height > 10 ? 0.01 : 1;
 }
 
-async function convert(sourcePath, outputPath) {
+export function trimAndRetimeClip(
+  clip,
+  { start = 0, end = clip.duration, speed = 1 } = {},
+) {
+  if (!Number.isFinite(speed) || speed <= 0) {
+    throw new Error("Animation speed must be greater than zero.");
+  }
+  const clipStart = Math.max(0, Math.min(start, clip.duration));
+  const clipEnd = Math.max(clipStart, Math.min(end, clip.duration));
+  if (clipEnd - clipStart < 0.05) {
+    throw new Error("Trimmed animation must be at least 0.05 seconds long.");
+  }
+  const tracks = clip.tracks.map((track) => {
+    const valueSize = track.getValueSize();
+    const selectedTimes = [
+      clipStart,
+      ...track.times.filter(
+        (time) => time > clipStart && time < clipEnd,
+      ),
+      clipEnd,
+    ];
+    const interpolant = track.createInterpolant();
+    const values = new Float32Array(selectedTimes.length * valueSize);
+    selectedTimes.forEach((time, index) => {
+      values.set(interpolant.evaluate(time), index * valueSize);
+    });
+    const times = Float32Array.from(
+      selectedTimes,
+      (time) => (time - clipStart) / speed,
+    );
+    return new track.constructor(track.name, times, values);
+  });
+  return new THREE.AnimationClip(
+    clip.name,
+    (clipEnd - clipStart) / speed,
+    tracks,
+  );
+}
+
+async function convert(
+  sourcePath,
+  outputPath,
+  profileName = "natural",
+  trimOptions = {},
+) {
+  const cleanupProfile = MOTION_CLEANUP_PROFILES[profileName];
+  if (!cleanupProfile) {
+    throw new Error(
+      `Unknown cleanup profile "${profileName}". Use responsive, natural, or tight.`,
+    );
+  }
   const parsed = new BVHLoader().parse(fs.readFileSync(sourcePath, "utf8"));
   const root = parsed.skeleton.bones[0];
   const scale = detectScale(root);
@@ -128,7 +185,10 @@ async function convert(sourcePath, outputPath) {
   }
   root.userData.vrmBoneMap = boneMap;
 
-  const clip = parsed.clip.clone();
+  const selectedClip = trimAndRetimeClip(parsed.clip, trimOptions);
+  const beforeCleanup = motionJerkMetrics(selectedClip);
+  const clip = cleanMotionClip(selectedClip, cleanupProfile);
+  const afterCleanup = motionJerkMetrics(clip);
   clip.name = path.basename(outputPath, path.extname(outputPath));
   clip.tracks = clip.tracks.filter(
     (track) => track.name === "Hips.position" || track.name.endsWith(".quaternion"),
@@ -174,17 +234,45 @@ async function convert(sourcePath, outputPath) {
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
   fs.writeFileSync(outputPath, Buffer.from(output));
   console.log(
-    `${path.basename(sourcePath)} -> ${path.basename(outputPath)} (${clip.duration.toFixed(2)}s, ${boneMap.size} mapped bones)`,
+    `${path.basename(sourcePath)} -> ${path.basename(outputPath)} (${clip.duration.toFixed(2)}s, ${boneMap.size} mapped bones, ${profileName} cleanup, jerk p95 ${beforeCleanup.angularJerkP95.toFixed(1)} -> ${afterCleanup.angularJerkP95.toFixed(1)} rad/s²)`,
   );
 }
 
-const [source, output] = process.argv.slice(2);
-if (!source || !output) {
-  console.error("Usage: node scripts/convert-bvh-to-vrma.mjs SOURCE.bvh OUTPUT.vrma");
-  process.exit(1);
-}
+if (
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href
+) {
+  const args = process.argv.slice(2);
+  function takeNumberFlag(name, fallback) {
+    const index = args.indexOf(name);
+    if (index === -1) return fallback;
+    const value = Number(args[index + 1]);
+    args.splice(index, 2);
+    return value;
+  }
+  const profileFlag = args.indexOf("--profile");
+  let profile = "natural";
+  if (profileFlag !== -1) {
+    profile = args[profileFlag + 1];
+    args.splice(profileFlag, 2);
+  }
+  const start = takeNumberFlag("--start", 0);
+  const end = takeNumberFlag("--end", Number.POSITIVE_INFINITY);
+  const speed = takeNumberFlag("--speed", 1);
+  const [source, output] = args;
+  if (!source || !output) {
+    console.error(
+      "Usage: node scripts/convert-bvh-to-vrma.mjs SOURCE.bvh OUTPUT.vrma [--profile responsive|natural|tight] [--start 0] [--end SECONDS] [--speed 1.15]",
+    );
+    process.exit(1);
+  }
 
-convert(path.resolve(source), path.resolve(output)).catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+  convert(path.resolve(source), path.resolve(output), profile, {
+    end,
+    speed,
+    start,
+  }).catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
+}
