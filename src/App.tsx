@@ -7,6 +7,7 @@ import {
 } from 'react';
 import { Scene } from './components/Scene';
 import { OverlayChrome } from './components/OverlayChrome';
+import { OverlayPointerPassthrough } from './components/OverlayPointerPassthrough';
 import {
   DanceSelector,
   type DanceOption,
@@ -246,6 +247,7 @@ export function App() {
 
   return deployedCharacters.length > 0 ? (
     <main className="app">
+      <OverlayPointerPassthrough />
       <OverlayChrome />
       <DanceSelector
         dances={danceOptions}

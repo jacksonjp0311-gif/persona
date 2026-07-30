@@ -5,6 +5,8 @@ const { contextBridge, ipcRenderer } = require("electron");
 contextBridge.exposeInMainWorld("personaBridge", {
   getSnapshot: () => ipcRenderer.invoke("persona:get-snapshot"),
   hide: () => ipcRenderer.send("persona:hide"),
+  setMousePassthrough: (passthrough) =>
+    ipcRenderer.send("persona:set-mouse-passthrough", Boolean(passthrough)),
   startWindowDrag: (point) =>
     ipcRenderer.send("persona:window-drag-start", point),
   moveWindowDrag: (point) =>

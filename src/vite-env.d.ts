@@ -112,6 +112,7 @@ interface Window {
   personaBridge?: {
     getSnapshot(): Promise<AvatarBridgeEvent | null>;
     hide(): void;
+    setMousePassthrough(passthrough: boolean): void;
     startWindowDrag(point: { x: number; y: number }): void;
     moveWindowDrag(point: { x: number; y: number }): void;
     endWindowDrag(): void;

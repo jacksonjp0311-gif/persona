@@ -308,8 +308,12 @@ button {
 }
 
 .overlay-drag-surface {
+  /* Keep drag hits to the upper band so Settings/Deploy stay clickable. */
   position: absolute;
-  inset: 0;
+  top: 0;
+  right: 18%;
+  left: 18%;
+  height: 18%;
   cursor: grab;
   pointer-events: auto;
 }

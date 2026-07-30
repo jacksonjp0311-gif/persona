@@ -4,6 +4,7 @@ export function OverlayChrome() {
       <div
         aria-hidden="true"
         className="overlay-drag-surface"
+        data-persona-interactive="drag"
         onPointerDown={(event) => {
           if (event.button !== 0) return;
           event.currentTarget.setPointerCapture(event.pointerId);
@@ -35,6 +36,7 @@ export function OverlayChrome() {
       <button
         aria-label="Undeploy Persona"
         className="overlay-close"
+        data-persona-interactive="close"
         onClick={() => window.personaBridge?.hide()}
         title="Undeploy Persona"
         type="button"

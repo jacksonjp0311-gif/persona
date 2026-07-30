@@ -56,6 +56,7 @@ test("preload exposes only narrow Persona and settings IPC operations", async ()
   assert.deepEqual([...exposed.keys()], ["personaBridge", "personaSettings"]);
   await bridge.getSnapshot();
   bridge.hide();
+  bridge.setMousePassthrough(true);
   bridge.startWindowDrag({ x: 10, y: 20 });
   bridge.moveWindowDrag({ x: 30, y: 40 });
   bridge.endWindowDrag();
@@ -126,6 +127,7 @@ test("preload exposes only narrow Persona and settings IPC operations", async ()
   ]);
   assert.deepEqual(sent, [
     ["persona:hide"],
+    ["persona:set-mouse-passthrough", true],
     ["persona:window-drag-start", { x: 10, y: 20 }],
     ["persona:window-drag-move", { x: 30, y: 40 }],
     ["persona:window-drag-end"],

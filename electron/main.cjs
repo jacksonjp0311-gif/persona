@@ -97,7 +97,7 @@ const pendingRendererEvents = new Map();
 /** Highest practical always-on-top level so Persona stays above normal apps. */
 const OVERLAY_ALWAYS_ON_TOP_LEVEL = "screen-saver";
 
-function pinOverlayAboveWindows(window) {
+function pinOverlayAboveWindows(window, { raise = false } = {}) {
   if (!window || window.isDestroyed()) return;
   try {
     window.setAlwaysOnTop(true, OVERLAY_ALWAYS_ON_TOP_LEVEL);
@@ -105,9 +105,17 @@ function pinOverlayAboveWindows(window) {
     window.setAlwaysOnTop(true, "floating");
   }
   window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-  if (typeof window.moveTop === "function") {
+  // Only raise on deploy/show — continuous moveTop steals focus from Settings
+  // and parks the transparent overlay on top of the Deploy button.
+  if (raise && typeof window.moveTop === "function") {
     window.moveTop();
   }
+}
+
+function enableOverlayClickThrough(window) {
+  if (!window || window.isDestroyed()) return;
+  // Forward mousemove so the renderer can re-enable hits on chrome controls.
+  window.setIgnoreMouseEvents(true, { forward: true });
 }
 
 function startAlwaysOnTopAssert() {
@@ -120,9 +128,27 @@ function startAlwaysOnTopAssert() {
     ) {
       return;
     }
-    pinOverlayAboveWindows(avatarWindow);
-  }, 1500);
+    // Re-assert always-on-top without raising over the Settings window.
+    pinOverlayAboveWindows(avatarWindow, { raise: false });
+  }, 2500);
   alwaysOnTopAssertTimer.unref?.();
+}
+
+function pushSettingsToWindow(window) {
+  if (!window || window.isDestroyed() || !settingsStore) return;
+  const snapshot = settingsStore.getSnapshot();
+  if (window.webContents.isLoading()) {
+    window.webContents.once("did-finish-load", () => {
+      if (!window.isDestroyed() && settingsStore) {
+        window.webContents.send(
+          "persona:settings-updated",
+          settingsStore.getSnapshot(),
+        );
+      }
+    });
+    return;
+  }
+  window.webContents.send("persona:settings-updated", snapshot);
 }
 
 function stopAlwaysOnTopAssert() {
@@ -266,15 +292,21 @@ function showOverlay({ focus = false } = {}) {
   }
   const window = createWindow();
   if (window.isMinimized()) window.restore();
+  // Always force-show on deploy — do not no-op when already "visible" but buried.
+  positionWindow(window);
+  pinOverlayAboveWindows(window, { raise: true });
+  enableOverlayClickThrough(window);
+  window.show();
   if (focus) {
-    if (!window.isVisible()) window.show();
     window.focus();
-  } else if (!window.isVisible()) {
-    window.showInactive();
   }
-  pinOverlayAboveWindows(window);
   startAlwaysOnTopAssert();
-  scheduleHyprlandWindowConfiguration();
+  pushSettingsToWindow(window);
+  scheduleHyprlandWindowConfiguration({
+    force: true,
+    position: hyprlandLastPosition,
+    reposition: !hyprlandConfigured || hyprlandLastPosition != null,
+  });
   scheduleAmbientDance();
 }
 
@@ -376,18 +408,21 @@ function createWindow() {
   });
   avatarWindow = window;
 
-  pinOverlayAboveWindows(window);
+  pinOverlayAboveWindows(window, { raise: true });
+  enableOverlayClickThrough(window);
   window.setOpacity(1);
   startAlwaysOnTopAssert();
   window.once("ready-to-show", () => {
     if (window.isDestroyed()) return;
     positionWindow(window);
-    pinOverlayAboveWindows(window);
+    pinOverlayAboveWindows(window, { raise: true });
+    enableOverlayClickThrough(window);
     scheduleHyprlandWindowConfiguration();
   });
   window.on("show", () => {
     if (window.isDestroyed()) return;
-    pinOverlayAboveWindows(window);
+    pinOverlayAboveWindows(window, { raise: true });
+    enableOverlayClickThrough(window);
     startAlwaysOnTopAssert();
     window.setOpacity(1);
     scheduleHyprlandWindowConfiguration({
@@ -399,11 +434,11 @@ function createWindow() {
   window.on("blur", () => {
     // Re-pin after another app steals focus so Persona stays painted on top.
     if (window.isDestroyed() || !window.isVisible()) return;
-    pinOverlayAboveWindows(window);
+    pinOverlayAboveWindows(window, { raise: false });
   });
   window.on("focus", () => {
     if (window.isDestroyed()) return;
-    pinOverlayAboveWindows(window);
+    pinOverlayAboveWindows(window, { raise: false });
   });
   window.on("close", (event) => {
     if (isQuitting) return;
@@ -520,7 +555,19 @@ function publishSettings(snapshot) {
     mcpHandler?.notifyToolsChanged();
   }
   for (const window of [avatarWindow, settingsWindow]) {
-    if (window && !window.isDestroyed() && !window.webContents.isLoading()) {
+    if (!window || window.isDestroyed()) continue;
+    // Never drop settings while the avatar is still loading — that left deploys
+    // with an empty roster until a manual refresh.
+    if (window.webContents.isLoading()) {
+      window.webContents.once("did-finish-load", () => {
+        if (!window.isDestroyed() && settingsStore) {
+          window.webContents.send(
+            "persona:settings-updated",
+            settingsStore.getSnapshot(),
+          );
+        }
+      });
+    } else {
       window.webContents.send("persona:settings-updated", snapshot);
     }
   }
@@ -865,6 +912,7 @@ if (!app.requestSingleInstanceLock()) {
     );
     ipcMain.handle("persona:settings-deploy-model", (_event, modelId) => {
       const snapshot = publishSettings(settingsStore.deployModels([modelId]));
+      // Always force the desktop avatar open after Deploy, even if already active.
       showOverlay({ focus: true });
       return snapshot;
     });
@@ -872,6 +920,13 @@ if (!app.requestSingleInstanceLock()) {
       const snapshot = publishSettings(settingsStore.deployModels(modelIds));
       showOverlay({ focus: true });
       return snapshot;
+    });
+    ipcMain.on("persona:set-mouse-passthrough", (event, passthrough) => {
+      if (!avatarWindow || avatarWindow.isDestroyed()) return;
+      if (event.sender !== avatarWindow.webContents) return;
+      avatarWindow.setIgnoreMouseEvents(Boolean(passthrough), {
+        forward: true,
+      });
     });
     ipcMain.handle("persona:settings-set-character-size", (_event, size) =>
       publishSettings(settingsStore.setCharacterSize(size)),

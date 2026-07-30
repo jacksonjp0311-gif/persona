@@ -52,6 +52,7 @@ export function DanceSelector({
     <div
       aria-label="Dance selector"
       className={`dance-selector ${hovered ? 'is-open' : ''}`}
+      data-persona-interactive="dance"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onWheel={handleWheel}
