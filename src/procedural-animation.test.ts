@@ -120,7 +120,7 @@ describe('procedural animation library', () => {
         for (const bone of ['hips', 'spine', 'chest', 'upperChest'] as const) {
           const yaw = pose[bone]?.[1];
           if (yaw == null) continue;
-          expect(Math.abs(yaw), `${preset} ${bone}`).toBeLessThanOrEqual(0.32);
+          expect(Math.abs(yaw), `${preset} ${bone}`).toBeLessThanOrEqual(0.18);
         }
       }
     }

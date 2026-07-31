@@ -43,6 +43,7 @@ const INITIAL_STATE: VoiceState = {
 };
 
 const BODY_IDLE_DELAY_MS = 650;
+const EMPTY_ANIMATION_URLS: string[] = [];
 
 export function App() {
   const [voice, setVoice] = useState<VoiceState>(INITIAL_STATE);
@@ -78,11 +79,17 @@ export function App() {
           if (source === 'ambient' && lockedDanceIdRef.current != null) {
             return;
           }
+          const isDance =
+            event.animation === 'DANCE' || source === 'ambient';
           setBodyOverride({
             animation: event.animation,
             animationName: event.animationName,
-            animationUrls: event.animationUrls,
-            mirror: event.mirror,
+            // Procedural dances must not also load VRMA clips.
+            animationUrls:
+              isDance && event.proceduralPreset
+                ? EMPTY_ANIMATION_URLS
+                : event.animationUrls,
+            mirror: isDance ? false : event.mirror,
             proceduralPreset: event.proceduralPreset,
             requestId: event.requestId,
             source,
@@ -236,8 +243,6 @@ export function App() {
     () => animationUrlsForType(settings.animations, animation),
     [animation, settings.animations],
   );
-  const animationUrls =
-    bodyOverride?.animationUrls ?? configuredAnimationUrls;
   const configuredProceduralPreset = useMemo(
     () => proceduralPresetForType(settings.animations, animation),
     [animation, settings.animations],
@@ -253,6 +258,18 @@ export function App() {
           bodyOverride == null
         ? 'calm-listen'
         : configuredProceduralPreset);
+  // Stable empty array when dancing procedurally — new [] each render
+  // restarts the animation loop and freezes/breaks motion.
+  const animationUrls = useMemo(() => {
+    if (bodyOverride?.animationUrls) return bodyOverride.animationUrls;
+    if (animation === 'DANCE' && proceduralPreset) return EMPTY_ANIMATION_URLS;
+    return configuredAnimationUrls;
+  }, [
+    animation,
+    bodyOverride?.animationUrls,
+    configuredAnimationUrls,
+    proceduralPreset,
+  ]);
   const overrideRequestId = bodyOverride?.requestId ?? null;
   const handleAnimationComplete = useCallback(() => {
     if (overrideRequestId == null) return;

@@ -94,22 +94,55 @@ let previousAmbientDanceId = null;
 let alwaysOnTopAssertTimer = null;
 const pendingRendererEvents = new Map();
 
-/** Highest practical always-on-top level so Persona stays above normal apps. */
-const OVERLAY_ALWAYS_ON_TOP_LEVEL = "screen-saver";
+/**
+ * Prefer the highest always-on-top tier available. Windows drops weaker levels
+ * under maximized apps; toggling off→on re-commits HWND_TOPMOST.
+ */
+const OVERLAY_ALWAYS_ON_TOP_LEVELS = [
+  "screen-saver",
+  "pop-up-menu",
+  "floating",
+  "normal",
+];
 
 function pinOverlayAboveWindows(window, { raise = false } = {}) {
   if (!window || window.isDestroyed()) return;
+  // Toggle forces Windows to re-apply topmost after other apps steal z-order.
   try {
-    window.setAlwaysOnTop(true, OVERLAY_ALWAYS_ON_TOP_LEVEL);
+    window.setAlwaysOnTop(false);
   } catch {
-    window.setAlwaysOnTop(true, "floating");
+    // ignore
   }
-  window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-  // Only raise on deploy/show — continuous moveTop steals focus from Settings
-  // and parks the transparent overlay on top of the Deploy button.
+  let pinned = false;
+  for (const level of OVERLAY_ALWAYS_ON_TOP_LEVELS) {
+    try {
+      window.setAlwaysOnTop(true, level);
+      pinned = true;
+      break;
+    } catch {
+      // try next level
+    }
+  }
+  if (!pinned) {
+    window.setAlwaysOnTop(true);
+  }
+  try {
+    window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  } catch {
+    window.setVisibleOnAllWorkspaces(true);
+  }
+  // Raise above other apps, but not while Settings is focused (Deploy clicks).
   if (raise && typeof window.moveTop === "function") {
     window.moveTop();
   }
+}
+
+function settingsWindowIsFocused() {
+  return Boolean(
+    settingsWindow &&
+      !settingsWindow.isDestroyed() &&
+      settingsWindow.isFocused(),
+  );
 }
 
 function enableOverlayClickThrough(window) {
@@ -128,9 +161,11 @@ function startAlwaysOnTopAssert() {
     ) {
       return;
     }
-    // Re-assert always-on-top without raising over the Settings window.
-    pinOverlayAboveWindows(avatarWindow, { raise: false });
-  }, 2500);
+    // Stay in front of other apps; avoid raise while Settings is active.
+    pinOverlayAboveWindows(avatarWindow, {
+      raise: !settingsWindowIsFocused(),
+    });
+  }, 750);
   alwaysOnTopAssertTimer.unref?.();
 }
 
@@ -612,12 +647,20 @@ function playConfiguredAnimation(
     ambientDanceTimer.unref?.();
   }
   animationCommandRequestId += 1;
+  const isDance =
+    installedAnimation.animation_type === "DANCE" ||
+    source === "ambient";
+  // Procedural dances never ship VRMA urls — clips fight facing on many VRMs.
+  const animationUrls =
+    isDance && installedAnimation.procedural_preset
+      ? []
+      : installedAnimation.asset_urls;
   handleBridgeEvent({
     type: "animation",
     animation: installedAnimation.animation_type ?? "CUSTOM",
     animationName: installedAnimation.animation_name,
-    animationUrls: installedAnimation.asset_urls,
-    mirror,
+    animationUrls,
+    mirror: isDance ? false : mirror,
     proceduralPreset: installedAnimation.procedural_preset,
     source,
     requestId: animationCommandRequestId,

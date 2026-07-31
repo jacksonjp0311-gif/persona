@@ -45,6 +45,8 @@ interface PendingCompletion {
   generation: number;
 }
 
+const EMPTY_URLS: readonly string[] = [];
+
 export function transitionSeconds(
   previous: PlayableAnimationType | null,
   next: PlayableAnimationType,
@@ -102,6 +104,14 @@ export function useVrmAnimation(vrm: VRM | null) {
     procedural.current = null;
   }, [vrm]);
 
+  const hardStopClips = useCallback(() => {
+    if (mixer.current) {
+      mixer.current.stopAllAction();
+    }
+    current.current = null;
+    pendingCompletion.current = null;
+  }, []);
+
   const activateProcedural = useCallback(
     (
       type: PlayableAnimationType,
@@ -109,10 +119,11 @@ export function useVrmAnimation(vrm: VRM | null) {
       playback: AnimationPlayback,
       onComplete?: () => void,
     ) => {
-      current.current?.fadeOut(
-        transitionSeconds(currentType.current, type),
-      );
-      current.current = null;
+      // Clip actions must fully stop — otherwise they overwrite dance bones.
+      hardStopClips();
+      restoreProceduralPose();
+      // Rebind bases from a clean rest pose for the new preset.
+      proceduralBones.current.clear();
       currentType.current = type;
       procedural.current = {
         completed: false,
@@ -122,7 +133,7 @@ export function useVrmAnimation(vrm: VRM | null) {
         preset,
       };
     },
-    [],
+    [hardStopClips, restoreProceduralPose],
   );
 
   useEffect(() => {
@@ -174,7 +185,9 @@ export function useVrmAnimation(vrm: VRM | null) {
     const loader = new GLTFLoader();
     loader.register((parser) => new VRMAnimationLoaderPlugin(parser));
     const gltf = await loader.loadAsync(url);
-    const animation = gltf.userData.vrmAnimations?.[0] as VRMAnimation | undefined;
+    const animation = gltf.userData.vrmAnimations?.[0] as
+      | VRMAnimation
+      | undefined;
     if (!animation) throw new Error(`No VRM animation found in ${url}`);
     cache.current.set(url, animation);
     return animation;
@@ -184,7 +197,7 @@ export function useVrmAnimation(vrm: VRM | null) {
     async (
       type: PlayableAnimationType,
       {
-        animationUrls = [],
+        animationUrls = EMPTY_URLS,
         onComplete,
         playback = 'loop',
         proceduralPreset,
@@ -198,7 +211,6 @@ export function useVrmAnimation(vrm: VRM | null) {
       pendingCompletion.current = null;
       try {
         // Dances with a procedural preset always use procedural motion.
-        // Packaged VRMA clips often break facing/proportions on mixed VRM bodies.
         const preferProceduralDance =
           type === 'DANCE' && isProceduralPreset(proceduralPreset);
         const url = preferProceduralDance
@@ -217,25 +229,17 @@ export function useVrmAnimation(vrm: VRM | null) {
             );
             return;
           }
-          const fadeSeconds = transitionSeconds(currentType.current, type);
-          current.current?.fadeOut(fadeSeconds);
-          current.current = null;
+          hardStopClips();
           currentType.current = type;
           if (playback === 'once') onComplete?.();
           return;
         }
         previousAnimation.current.set(type, url);
-        if (
-          !current.current &&
-          !procedural.current &&
-          isProceduralPreset(proceduralPreset)
-        ) {
-          activateProcedural(type, proceduralPreset, 'loop');
-        }
+        // Leaving procedural mode — restore rest before clip playback.
+        restoreProceduralPose();
         const animation = await load(url);
         if (generation !== requestGeneration.current || !mixer.current) return;
         const previousAction = current.current;
-        restoreProceduralPose();
         // Clamp hips + torso heading so captured dances stay camera-facing.
         for (const bone of [
           'hips',
@@ -249,7 +253,7 @@ export function useVrmAnimation(vrm: VRM | null) {
             bone,
             stabilizeFacingTrack(
               track,
-              bone === 'hips' ? undefined : MAX_FRONT_FACING_YAW * 0.7,
+              bone === 'hips' ? undefined : MAX_FRONT_FACING_YAW * 0.55,
             ),
           );
         }
@@ -258,7 +262,11 @@ export function useVrmAnimation(vrm: VRM | null) {
         );
         const fadeSeconds = transitionSeconds(currentType.current, type);
         action.reset();
-        configureAnimationAction(action, playback, playbackRate(type, playback));
+        configureAnimationAction(
+          action,
+          playback,
+          playbackRate(type, playback),
+        );
         if (playback === 'once') {
           if (onComplete) {
             pendingCompletion.current = {
@@ -287,14 +295,18 @@ export function useVrmAnimation(vrm: VRM | null) {
         }
       }
     },
-    [activateProcedural, load, restoreProceduralPose, vrm],
+    [activateProcedural, hardStopClips, load, restoreProceduralPose, vrm],
   );
 
   const update = useCallback(
     (delta: number) => {
-      mixer.current?.update(delta);
       const active = procedural.current;
-      if (!active || !vrm) return;
+      // While procedural dance/idle owns the body, skip mixer writes.
+      if (!active) {
+        mixer.current?.update(delta);
+        return;
+      }
+      if (!vrm) return;
 
       active.elapsed += delta;
       const duration = PROCEDURAL_DURATIONS[active.preset];
@@ -328,28 +340,28 @@ export function useVrmAnimation(vrm: VRM | null) {
           new THREE.Euler(rotation[0], rotation[1], rotation[2], 'XYZ'),
         );
         const target = binding.base.clone().multiply(offset);
-        binding.node.quaternion.copy(binding.base).slerp(target, weight);
+        binding.node.quaternion.slerpQuaternions(
+          binding.base,
+          target,
+          weight,
+        );
       }
       const rootBinding = proceduralRoot.current;
       if (rootBinding) {
         const rootMotion = sampleProceduralRoot(active.preset, sampleTime);
+        // Position bounce only — never accumulate walk-off or full turns.
         vrm.scene.position
           .copy(rootBinding.position)
           .addScaledVector(
-            new THREE.Vector3(...rootMotion.position),
+            new THREE.Vector3(
+              rootMotion.position[0] * 0.35,
+              rootMotion.position[1],
+              rootMotion.position[2] * 0.35,
+            ),
             weight,
           );
-        const targetRootRotation = rootBinding.quaternion
-          .clone()
-          .multiply(
-            new THREE.Quaternion().setFromAxisAngle(
-              new THREE.Vector3(0, 1, 0),
-              rootMotion.yaw,
-            ),
-          );
-        vrm.scene.quaternion
-          .copy(rootBinding.quaternion)
-          .slerp(targetRootRotation, weight);
+        // Keep facing the camera; yaw accents stay on torso bones only.
+        vrm.scene.quaternion.copy(rootBinding.quaternion);
       }
 
       if (
