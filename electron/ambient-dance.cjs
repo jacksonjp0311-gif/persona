@@ -39,16 +39,26 @@ function canPlayAmbientDance(voiceState) {
 }
 
 /**
- * Only procedural dances ambient-loop on the desktop avatar.
- * Captured VRMA clips are too inconsistent across VRM skeletons.
+ * Only proven smooth procedural dances ambient-loop on the desktop avatar.
+ * Matches the hover-wheel featured set so autoplay never picks a broken move.
  */
+const RELIABLE_AMBIENT_PRESETS = new Set([
+  "freestyle-groove",
+  "hip-hop-bounce",
+  "justice-bounce",
+  "floss-swing",
+  "running-man",
+  "robot-pop",
+  "two-step",
+  "say-so-bounce",
+]);
+
 function ambientDanceCandidates(animations) {
   return animations.filter(
     (animation) =>
       animation.animation_type === "DANCE" &&
-      animation.procedural_preset != null &&
       typeof animation.procedural_preset === "string" &&
-      animation.procedural_preset.length > 0,
+      RELIABLE_AMBIENT_PRESETS.has(animation.procedural_preset),
   );
 }
 

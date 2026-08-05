@@ -62,12 +62,13 @@ test("ambient dances run while idle or listening, not while speaking", () => {
   );
 });
 
-test("ambient dances only use procedural presets", () => {
+test("ambient dances only use reliable procedural presets", () => {
   const candidates = ambientDanceCandidates([
     dance("clip-only"),
     dance("procedural-only", [], "freestyle-groove"),
     { ...dance("talk"), animation_type: "TALK" },
     dance("both", ["both.vrma"], "hip-hop-bounce"),
+    dance("broken-style", [], "macarena-wave"),
     dance("empty", [], null),
   ]);
   assert.deepEqual(

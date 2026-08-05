@@ -184,13 +184,153 @@ export function proceduralBlendWeight(
   duration: number,
   playback: 'loop' | 'once',
 ): number {
-  void elapsed;
-  void duration;
-  void playback;
-  // Procedural animation is the resilient fallback path. Returning full
-  // weight prevents a model's imported bind pose from leaking through while
-  // an authored VRMA clip loads or after a one-shot finishes.
-  return 1;
+  // Soft ease-in so dance switches never pop.
+  const easeIn = ease(Math.min(1, Math.max(0, elapsed / 0.28)));
+  if (playback === 'loop') return easeIn;
+  const remaining = Math.max(0, duration - elapsed);
+  const easeOut = ease(Math.min(1, remaining / 0.22));
+  return easeIn * easeOut;
+}
+
+type Vec3 = readonly [number, number, number];
+const vec = (x: number, y: number, z: number): Vec3 => [x, y, z];
+const addVec = (a: Vec3, b: Vec3): Vec3 => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
+
+/**
+ * Soften harsh sign snaps so beat-synced dances do not pop into broken poses.
+ */
+function softSnap(time: number, bpm = 110): number {
+  return Math.tanh(beat(time, bpm) * 2.2);
+}
+
+/**
+ * One smooth full-body dance recipe. Every dance is a parameter pack on this
+ * so limbs stay coherent, camera-facing, and free of extreme joint snaps.
+ */
+function smoothDance(
+  time: number,
+  {
+    bpm = 112,
+    bounce = 0.09,
+    stepAmp = 0.16,
+    armSwing = 0.22,
+    armLift = 0,
+    knee = 0.2,
+    chestAmp = 0.06,
+    headAmp = 0.04,
+    style = 'groove',
+  }: {
+    bpm?: number;
+    bounce?: number;
+    stepAmp?: number;
+    armSwing?: number;
+    armLift?: number;
+    knee?: number;
+    chestAmp?: number;
+    headAmp?: number;
+    style?:
+      | 'groove'
+      | 'floss'
+      | 'robot'
+      | 'run'
+      | 'wave'
+      | 'point'
+      | 'justice'
+      | 'twist';
+  } = {},
+): ProceduralPose {
+  const b = Math.abs(beat(time, bpm));
+  const step = wave(time, bpm / 60);
+  const arm = wave(time, bpm / 60, 0.2);
+  const rest = RELAXED_REST_POSE;
+  const hipBounce = bounce * b;
+  const kneeBend = knee * b;
+
+  let leftArm = addVec(rest.leftUpperArm!, vec(-armLift * b, 0, -armSwing * arm));
+  let rightArm = addVec(rest.rightUpperArm!, vec(-armLift * b, 0, armSwing * arm));
+  let leftFore = addVec(rest.leftLowerArm!, vec(-0.08 * b, 0, 0));
+  let rightFore = addVec(rest.rightLowerArm!, vec(-0.08 * b, 0, 0));
+  let leftLeg = addVec(rest.leftUpperLeg!, vec(stepAmp * step, 0, 0.03 * step));
+  let rightLeg = addVec(rest.rightUpperLeg!, vec(-stepAmp * step, 0, 0.03 * step));
+  let leftKnee = addVec(rest.leftLowerLeg!, vec(kneeBend + 0.18 * Math.max(0, -step), 0, 0));
+  let rightKnee = addVec(rest.rightLowerLeg!, vec(kneeBend + 0.18 * Math.max(0, step), 0, 0));
+  let chest = addVec(rest.chest!, vec(-chestAmp * b, -0.03 * step, 0.04 * step));
+  let hips = addVec(rest.hips!, vec(0.04 + hipBounce, 0.035 * step, 0));
+  let head = addVec(rest.head!, vec(headAmp * b, 0.04 * step, 0));
+
+  if (style === 'floss') {
+    const swing = wave(time, 1.45);
+    leftArm = addVec(rest.leftUpperArm!, vec(-0.08, 0, -0.12 - 0.42 * swing));
+    rightArm = addVec(rest.rightUpperArm!, vec(-0.08, 0, 0.12 + 0.42 * swing));
+    leftFore = addVec(rest.leftLowerArm!, vec(-0.12 - 0.2 * swing, 0, 0));
+    rightFore = addVec(rest.rightLowerArm!, vec(-0.12 + 0.2 * swing, 0, 0));
+    hips = addVec(rest.hips!, vec(0.04 + 0.03 * b, 0.04 * swing, 0));
+    chest = addVec(rest.chest!, vec(-0.03, -0.03 * swing, 0));
+  } else if (style === 'robot') {
+    const snap = softSnap(time, bpm);
+    leftArm = addVec(rest.leftUpperArm!, vec(-0.35, 0.1 * snap, 0.08));
+    rightArm = addVec(rest.rightUpperArm!, vec(-0.35, -0.1 * snap, -0.08));
+    leftFore = addVec(rest.leftLowerArm!, vec(-0.35 + 0.12 * snap, 0, 0));
+    rightFore = addVec(rest.rightLowerArm!, vec(-0.35 - 0.12 * snap, 0, 0));
+    chest = addVec(rest.chest!, vec(0.06 * snap, 0.05 * snap, 0));
+    head = addVec(rest.head!, vec(-0.04 * snap, -0.04 * snap, 0));
+    leftLeg = addVec(rest.leftUpperLeg!, vec(0.04, 0, -0.03));
+    rightLeg = addVec(rest.rightUpperLeg!, vec(0.04, 0, 0.03));
+    leftKnee = addVec(rest.leftLowerLeg!, vec(0.1, 0, 0));
+    rightKnee = addVec(rest.rightLowerLeg!, vec(0.1, 0, 0));
+  } else if (style === 'run') {
+    leftArm = addVec(rest.leftUpperArm!, vec(-0.2 - 0.28 * step, 0, 0.05));
+    rightArm = addVec(rest.rightUpperArm!, vec(-0.2 + 0.28 * step, 0, -0.05));
+    leftFore = addVec(rest.leftLowerArm!, vec(-0.2 + 0.1 * step, 0, 0));
+    rightFore = addVec(rest.rightLowerArm!, vec(-0.2 - 0.1 * step, 0, 0));
+    leftLeg = addVec(rest.leftUpperLeg!, vec(0.32 * step, 0, 0));
+    rightLeg = addVec(rest.rightUpperLeg!, vec(-0.32 * step, 0, 0));
+    leftKnee = addVec(rest.leftLowerLeg!, vec(0.35 * Math.max(0, -step) + 0.08 * b, 0, 0));
+    rightKnee = addVec(rest.rightLowerLeg!, vec(0.35 * Math.max(0, step) + 0.08 * b, 0, 0));
+  } else if (style === 'wave') {
+    const w = wave(time, 0.75);
+    hips = addVec(rest.hips!, vec(0.08 * wave(time, 0.75, 2.2), 0, 0));
+    chest = addVec(rest.chest!, vec(0.1 * wave(time, 0.75, 0.9), 0, 0));
+    head = addVec(rest.head!, vec(0.05 * w, 0, 0));
+    leftArm = addVec(rest.leftUpperArm!, vec(0.05, 0, 0.15));
+    rightArm = addVec(rest.rightUpperArm!, vec(0.05, 0, -0.15));
+  } else if (style === 'point') {
+    const lift = pulse(time, 0.9);
+    rightArm = addVec(rest.rightUpperArm!, vec(-0.85 * lift, 0, -0.15));
+    rightFore = addVec(rest.rightLowerArm!, vec(0.35 * lift, 0, 0));
+    leftArm = addVec(rest.leftUpperArm!, vec(0.05, 0, 0.12));
+    hips = addVec(rest.hips!, vec(0.05 + 0.04 * b, 0.05 * step, 0));
+  } else if (style === 'justice') {
+    const lift = pulse(time, 1.1);
+    leftArm = addVec(rest.leftUpperArm!, vec(-0.55 - 0.55 * lift, 0, 0.08));
+    rightArm = addVec(rest.rightUpperArm!, vec(-0.55 - 0.55 * lift, 0, -0.08));
+    leftFore = addVec(rest.leftLowerArm!, vec(-0.15 - 0.35 * lift, 0, 0));
+    rightFore = addVec(rest.rightLowerArm!, vec(-0.15 - 0.35 * lift, 0, 0));
+    leftKnee = addVec(rest.leftLowerLeg!, vec(0.28 * b, 0, 0));
+    rightKnee = addVec(rest.rightLowerLeg!, vec(0.28 * b, 0, 0));
+    hips = addVec(rest.hips!, vec(0.06 + 0.1 * b, 0.03 * step, 0));
+  } else if (style === 'twist') {
+    hips = addVec(rest.hips!, vec(0.05 + 0.04 * b, 0.1 * step, 0.06 * step));
+    chest = addVec(rest.chest!, vec(-0.04, -0.08 * step, 0.05 * step));
+    leftArm = addVec(rest.leftUpperArm!, vec(-0.05, 0, 0.08 * step));
+    rightArm = addVec(rest.rightUpperArm!, vec(-0.05, 0, -0.08 * step));
+  }
+
+  return {
+    hips,
+    spine: addVec(rest.spine!, vec(-0.02 * b, -0.02 * step, 0)),
+    chest,
+    neck: addVec(rest.neck!, vec(0.01 * b, 0.02 * step, 0)),
+    head,
+    leftUpperArm: leftArm,
+    rightUpperArm: rightArm,
+    leftLowerArm: leftFore,
+    rightLowerArm: rightFore,
+    leftUpperLeg: leftLeg,
+    rightUpperLeg: rightLeg,
+    leftLowerLeg: leftKnee,
+    rightLowerLeg: rightKnee,
+  };
 }
 
 export function sampleProceduralPose(
@@ -322,538 +462,75 @@ export function sampleProceduralPose(
         rightLowerArm: [-1.45, 0, 0],
       };
     case 'griddy-celebration':
-      return {
-        hips: [0.05 + 0.08 * Math.abs(step), 0.15 * step, -0.1 * step],
-        chest: [-0.08, -0.1 * step, 0.08 * step],
-        leftUpperArm: [-0.85 + 0.25 * step, 0, -0.82],
-        rightUpperArm: [-0.85 - 0.25 * step, 0, 0.82],
-        leftLowerArm: [-1.05 + 0.2 * step, 0, 0],
-        rightLowerArm: [-1.05 - 0.2 * step, 0, 0],
-        leftUpperLeg: [0.52 * step, 0, 0],
-        rightUpperLeg: [-0.52 * step, 0, 0],
-        leftLowerLeg: [0.55 * Math.max(0, -step), 0, 0],
-        rightLowerLeg: [0.55 * Math.max(0, step), 0, 0],
-      };
-    case 'two-step': {
-      const bounce = Math.abs(b);
-      return {
-        hips: [0.06 + 0.05 * bounce, 0.04 * step, 0],
-        chest: [-0.04, -0.03 * step, 0.04 * step],
-        head: [0.03 * bounce, 0.04 * step, 0],
-        leftUpperArm: [-0.4 - 0.12 * step, 0, -0.35],
-        rightUpperArm: [-0.4 + 0.12 * step, 0, 0.35],
-        leftLowerArm: [-0.55, 0, 0],
-        rightLowerArm: [-0.55, 0, 0],
-        leftUpperLeg: [0.18 * step, 0, 0.06 * step],
-        rightUpperLeg: [-0.18 * step, 0, 0.06 * step],
-        leftLowerLeg: [0.22 * Math.max(0, -step) + 0.08 * bounce, 0, 0],
-        rightLowerLeg: [0.22 * Math.max(0, step) + 0.08 * bounce, 0, 0],
-      };
-    }
-    case 'running-man': {
-      const kick = step;
-      return {
-        hips: [0.08 + 0.04 * Math.abs(kick), 0, 0],
-        chest: [-0.06, 0, 0.04 * kick],
-        head: [0.04 * Math.abs(kick), 0, 0],
-        leftUpperArm: [-0.45 - 0.35 * kick, 0, -0.25],
-        rightUpperArm: [-0.45 + 0.35 * kick, 0, 0.25],
-        leftLowerArm: [-0.65 + 0.12 * kick, 0, 0],
-        rightLowerArm: [-0.65 - 0.12 * kick, 0, 0],
-        leftUpperLeg: [0.45 * kick, 0, 0],
-        rightUpperLeg: [-0.45 * kick, 0, 0],
-        leftLowerLeg: [0.5 * Math.max(0, -kick), 0, 0],
-        rightLowerLeg: [0.5 * Math.max(0, kick), 0, 0],
-      };
-    }
+      return smoothDance(time, { bpm: 118, bounce: 0.1, stepAmp: 0.22, armSwing: 0.28, knee: 0.22, style: 'run' });
+    case 'two-step':
+      return smoothDance(time, { bpm: 108, bounce: 0.08, stepAmp: 0.14, armSwing: 0.16, knee: 0.16 });
+    case 'running-man':
+      return smoothDance(time, { bpm: 120, bounce: 0.07, stepAmp: 0.28, armSwing: 0.2, knee: 0.24, style: 'run' });
     case 'heel-toe-shuffle':
-      return {
-        hips: [0.06, 0.18 * step, -0.12 * step],
-        chest: [0, -0.1 * step, 0.1 * step],
-        leftUpperLeg: [0.12 * step, 0.18 * step, 0],
-        rightUpperLeg: [-0.12 * step, -0.18 * step, 0],
-        leftFoot: [0.35 * step, 0.2 * step, 0],
-        rightFoot: [-0.35 * step, -0.2 * step, 0],
-      };
-    case 'robot-pop': {
-      const snap = softSnap(time, 100);
-      return {
-        hips: [0.04, 0, 0],
-        chest: [0.08 * snap, 0.06 * snap, 0],
-        head: [-0.05 * snap, -0.05 * snap, 0],
-        leftUpperArm: [-0.7, 0.1 * snap, -0.5],
-        rightUpperArm: [-0.7, -0.1 * snap, 0.5],
-        leftLowerArm: [-0.95 + 0.12 * snap, 0, 0],
-        rightLowerArm: [-0.95 - 0.12 * snap, 0, 0],
-        leftUpperLeg: [0.05, 0, -0.04],
-        rightUpperLeg: [0.05, 0, 0.04],
-      };
-    }
+      return smoothDance(time, { bpm: 112, bounce: 0.07, stepAmp: 0.12, armSwing: 0.12, knee: 0.14 });
+    case 'robot-pop':
+      return smoothDance(time, { bpm: 100, bounce: 0.05, stepAmp: 0.06, armSwing: 0.1, knee: 0.1, style: 'robot' });
     case 'body-wave':
-      return {
-        hips: [0.12 * wave(time, 0.7, 2.4), 0, 0],
-        spine: [0.15 * wave(time, 0.7, 1.7), 0, 0],
-        chest: [0.18 * wave(time, 0.7, 0.9), 0, 0],
-        upperChest: [0.15 * wave(time, 0.7, 0.3), 0, 0],
-        head: [0.08 * wave(time, 0.7), 0, 0],
-        leftUpperArm: [-0.35, 0, -0.3],
-        rightUpperArm: [-0.35, 0, 0.3],
-      };
+      return smoothDance(time, { bpm: 96, bounce: 0.05, stepAmp: 0.06, armSwing: 0.08, style: 'wave' });
     case 'moonwalk-glide':
-      return {
-        hips: [0.06, 0, -0.12 * step],
-        chest: [-0.05, 0, 0.08 * step],
-        leftUpperLeg: [0.16 * step, 0, 0],
-        rightUpperLeg: [-0.16 * step, 0, 0],
-        leftLowerLeg: [0.28 * Math.max(0, step), 0, 0],
-        rightLowerLeg: [0.28 * Math.max(0, -step), 0, 0],
-        leftFoot: [0.38 * step, 0, 0],
-        rightFoot: [-0.38 * step, 0, 0],
-      };
+      return smoothDance(time, { bpm: 100, bounce: 0.05, stepAmp: 0.12, armSwing: 0.1, knee: 0.18 });
     case 'salsa-basic':
-      return {
-        hips: [0.05, 0.12 * step, -0.22 * step],
-        chest: [0, -0.08 * step, 0.09 * step],
-        leftUpperArm: [-0.5, 0, -0.35 - 0.08 * step],
-        rightUpperArm: [-0.5, 0, 0.35 - 0.08 * step],
-        leftUpperLeg: [0.32 * step, 0, 0],
-        rightUpperLeg: [-0.32 * step, 0, 0],
-      };
+      return smoothDance(time, { bpm: 118, bounce: 0.07, stepAmp: 0.18, armSwing: 0.14, knee: 0.14 });
     case 'disco-point':
-      return {
-        hips: [0.05, 0.22 * step, -0.15 * step],
-        chest: [-0.05, -0.18 * step, 0.12 * step],
-        rightUpperArm: [-1.9 + 0.8 * pulse(time, 0.9), 0, 0.75],
-        rightLowerArm: [-0.15, 0, 0],
-        leftUpperArm: [-0.2, 0, -0.65],
-      };
-    case 'hip-hop-bounce': {
-      const bounce = Math.abs(b);
-      return {
-        hips: [0.1 + 0.08 * bounce, 0.05 * step, 0],
-        chest: [-0.08 - 0.05 * bounce, -0.04 * step, 0.05 * step],
-        head: [0.04 * bounce, 0.05 * step, 0],
-        leftUpperArm: [-0.5 - 0.18 * b, 0, -0.35],
-        rightUpperArm: [-0.5 + 0.18 * b, 0, 0.35],
-        leftLowerArm: [-0.7 + 0.1 * b, 0, 0],
-        rightLowerArm: [-0.7 - 0.1 * b, 0, 0],
-        leftUpperLeg: [0.08 * bounce, 0.04 * step, 0],
-        rightUpperLeg: [0.08 * bounce, -0.04 * step, 0],
-        leftLowerLeg: [0.2 * bounce, 0, 0],
-        rightLowerLeg: [0.2 * bounce, 0, 0],
-      };
-    }
+      return smoothDance(time, { bpm: 112, bounce: 0.07, stepAmp: 0.12, armSwing: 0.1, style: 'point' });
+    case 'hip-hop-bounce':
+      return smoothDance(time, { bpm: 112, bounce: 0.11, stepAmp: 0.14, armSwing: 0.2, knee: 0.2 });
     case 'spin-celebration':
-      return {
-        hips: [0.05, 0, 0],
-        chest: [-0.08, 0, 0],
-        leftUpperArm: [-0.3, 0, -1.15],
-        rightUpperArm: [-0.3, 0, 1.15],
-      };
+      return smoothDance(time, { bpm: 116, bounce: 0.08, stepAmp: 0.1, armSwing: 0.18, armLift: 0.15, knee: 0.14 });
     case 'the-twist':
-      return {
-        // Keep twist as hip roll / sway — not a full body turn-away.
-        hips: [0.1 * Math.abs(b), 0.18 * step, 0.12 * step],
-        chest: [-0.06, -0.14 * step, 0.08 * step],
-        leftUpperArm: [-0.45, 0, -0.42 + 0.12 * step],
-        rightUpperArm: [-0.45, 0, 0.42 + 0.12 * step],
-        leftLowerArm: [-0.78, 0, 0],
-        rightLowerArm: [-0.78, 0, 0],
-        leftUpperLeg: [0.12 * step, 0.12 * step, 0],
-        rightUpperLeg: [-0.12 * step, -0.12 * step, 0],
-      };
+      return smoothDance(time, { bpm: 120, bounce: 0.08, stepAmp: 0.12, armSwing: 0.12, style: 'twist' });
     case 'charleston-step':
-      return {
-        hips: [0.1, 0.1 * step, 0],
-        chest: [-0.08, -0.08 * step, 0],
-        leftUpperArm: [-0.5 + 0.28 * step, 0, -0.2],
-        rightUpperArm: [-0.5 - 0.28 * step, 0, 0.2],
-        leftUpperLeg: [0.62 * step, 0, 0],
-        rightUpperLeg: [-0.62 * step, 0, 0],
-        leftLowerLeg: [0.58 * Math.max(0, step), 0, 0],
-        rightLowerLeg: [0.58 * Math.max(0, -step), 0, 0],
-        leftFoot: [0.34 * step, 0, 0],
-        rightFoot: [-0.34 * step, 0, 0],
-      };
+      return smoothDance(time, { bpm: 124, bounce: 0.07, stepAmp: 0.24, armSwing: 0.2, knee: 0.22, style: 'run' });
     case 'side-shuffle':
-      return {
-        hips: [0.08 + 0.08 * Math.abs(b), 0, -0.2 * step],
-        chest: [-0.06, 0, 0.14 * step],
-        leftUpperArm: [-0.42 - 0.24 * step, 0, -0.24],
-        rightUpperArm: [-0.42 + 0.24 * step, 0, 0.24],
-        leftUpperLeg: [0.28 * step, 0, 0.18 * step],
-        rightUpperLeg: [-0.28 * step, 0, 0.18 * step],
-        leftLowerLeg: [0.36 * Math.max(0, -step), 0, 0],
-        rightLowerLeg: [0.36 * Math.max(0, step), 0, 0],
-      };
+      return smoothDance(time, { bpm: 118, bounce: 0.08, stepAmp: 0.16, armSwing: 0.18, knee: 0.16 });
     case 'grapevine-step':
-      return {
-        hips: [0.05, 0.18 * step, -0.16 * step],
-        chest: [-0.04, -0.12 * step, 0.12 * step],
-        leftUpperArm: [-0.38 - 0.18 * step, 0, -0.48],
-        rightUpperArm: [-0.38 + 0.18 * step, 0, 0.48],
-        leftUpperLeg: [0.18 * step, 0.22 * step, 0.2 * step],
-        rightUpperLeg: [-0.18 * step, -0.22 * step, 0.2 * step],
-      };
-    case 'jazz-square': {
-      const phase = (time * 1.1) % 1;
-      const quarter = Math.floor(phase * 4);
-      const local = ease((phase * 4) % 1);
-      const left = quarter === 0 || quarter === 3 ? local : 1 - local;
-      const forward = quarter < 2 ? local : 1 - local;
-      return {
-        hips: [0.06, 0.16 * (left - 0.5), -0.12 * (left - 0.5)],
-        chest: [-0.05, -0.1 * (left - 0.5), 0.08 * (left - 0.5)],
-        leftUpperArm: [-0.45, 0, -0.42],
-        rightUpperArm: [-0.45, 0, 0.42],
-        leftUpperLeg: [0.35 * (forward - 0.5), 0.2 * (left - 0.5), 0],
-        rightUpperLeg: [-0.35 * (forward - 0.5), -0.2 * (left - 0.5), 0],
-      };
-    }
+      return smoothDance(time, { bpm: 112, bounce: 0.07, stepAmp: 0.15, armSwing: 0.16, knee: 0.15 });
+    case 'jazz-square':
+      return smoothDance(time, { bpm: 108, bounce: 0.06, stepAmp: 0.14, armSwing: 0.12, knee: 0.14 });
     case 'box-step':
-      return {
-        hips: [0.05, 0.12 * step, -0.1 * step],
-        chest: [-0.04, -0.08 * step, 0.08 * step],
-        leftUpperArm: [-0.56, 0, -0.36],
-        rightUpperArm: [-0.56, 0, 0.36],
-        leftLowerArm: [-0.72, 0, 0],
-        rightLowerArm: [-0.72, 0, 0],
-        leftUpperLeg: [0.38 * step, 0, 0.12 * step],
-        rightUpperLeg: [-0.38 * step, 0, 0.12 * step],
-      };
+      return smoothDance(time, { bpm: 100, bounce: 0.05, stepAmp: 0.12, armSwing: 0.1, knee: 0.12 });
     case 'mambo-step':
-      return {
-        hips: [0.06, 0.22 * step, -0.18 * step],
-        chest: [-0.05, -0.13 * step, 0.1 * step],
-        leftUpperArm: [-0.5 - 0.15 * step, 0, -0.28],
-        rightUpperArm: [-0.5 + 0.15 * step, 0, 0.28],
-        leftUpperLeg: [0.48 * step, 0, 0],
-        rightUpperLeg: [-0.36 * step, 0, 0],
-        leftLowerLeg: [0.28 * Math.max(0, -step), 0, 0],
-        rightLowerLeg: [0.28 * Math.max(0, step), 0, 0],
-      };
-    case 'cha-cha': {
-      const quick = wave(time, 2.7);
-      return {
-        hips: [0.05, 0.2 * quick, -0.2 * step],
-        chest: [-0.04, -0.1 * quick, 0.1 * step],
-        leftUpperArm: [-0.48, 0, -0.4 - 0.08 * quick],
-        rightUpperArm: [-0.48, 0, 0.4 - 0.08 * quick],
-        leftUpperLeg: [0.3 * step, 0.1 * quick, 0],
-        rightUpperLeg: [-0.3 * step, -0.1 * quick, 0],
-      };
-    }
+      return smoothDance(time, { bpm: 118, bounce: 0.07, stepAmp: 0.18, armSwing: 0.14, knee: 0.16 });
+    case 'cha-cha':
+      return smoothDance(time, { bpm: 124, bounce: 0.07, stepAmp: 0.16, armSwing: 0.14, knee: 0.14 });
     case 'arm-wave':
-      return {
-        chest: [0, 0.08 * wave(time, 0.5), 0],
-        leftUpperArm: [-0.35, 0, -1.18],
-        leftLowerArm: [-0.25 - 0.4 * wave(time, 0.75, 1.4), 0, 0],
-        leftHand: [0, 0, 0.34 * wave(time, 0.75, 2.2)],
-        rightUpperArm: [-0.35, 0, 1.18],
-        rightLowerArm: [-0.25 - 0.4 * wave(time, 0.75, 4.5), 0, 0],
-        rightHand: [0, 0, 0.34 * wave(time, 0.75, 5.4)],
-        head: [0.03 * b, -0.06 * sway, 0],
-      };
-    case 'freestyle-groove': {
-      const bounce = Math.abs(b);
-      return {
-        hips: [0.1 + 0.07 * bounce, 0.06 * step, 0],
-        spine: [-0.03 * b, -0.04 * step, 0],
-        chest: [-0.08 - 0.04 * bounce, -0.05 * step, 0.06 * step],
-        head: [0.05 * wave(time, 0.9), 0.05 * sway, 0],
-        leftUpperArm: [-0.55 - 0.28 * step, 0, -0.4],
-        rightUpperArm: [-0.55 + 0.28 * step, 0, 0.4],
-        leftLowerArm: [-0.75 + 0.16 * b, 0, 0],
-        rightLowerArm: [-0.75 - 0.16 * b, 0, 0],
-        leftUpperLeg: [0.28 * step, 0, 0.05 * step],
-        rightUpperLeg: [-0.28 * step, 0, 0.05 * step],
-        leftLowerLeg: [0.28 * Math.max(0, -step) + 0.1 * bounce, 0, 0],
-        rightLowerLeg: [0.28 * Math.max(0, step) + 0.1 * bounce, 0, 0],
-      };
-    }
-    case 'justice-bounce': {
-      const bounce = Math.abs(b);
-      const lift = pulse(time, 1.15);
-      return {
-        hips: [0.1 + 0.1 * bounce, 0.04 * step, 0],
-        chest: [-0.08 - 0.04 * bounce, -0.03 * step, 0],
-        head: [0.05 * bounce, 0.04 * step, 0],
-        leftUpperArm: [-0.9 - 0.55 * lift, 0, -0.45],
-        rightUpperArm: [-0.9 - 0.55 * lift, 0, 0.45],
-        leftLowerArm: [-0.55 - 0.35 * lift, 0, 0],
-        rightLowerArm: [-0.55 - 0.35 * lift, 0, 0],
-        leftUpperLeg: [0.12 * bounce, 0.05 * step, 0],
-        rightUpperLeg: [0.12 * bounce, -0.05 * step, 0],
-        leftLowerLeg: [0.42 * bounce, 0, 0],
-        rightLowerLeg: [0.42 * bounce, 0, 0],
-      };
-    }
-    case 'floss-swing': {
-      // Arms whip front/back on opposite sides; hips stay mostly square.
-      const swing = wave(time, 1.55);
-      return {
-        hips: [0.05, 0.05 * swing, 0],
-        chest: [-0.03, -0.04 * swing, 0],
-        head: [0.02, 0.03 * swing, 0],
-        leftUpperArm: [-0.5 - 0.55 * swing, 0, -0.22],
-        rightUpperArm: [-0.5 + 0.55 * swing, 0, 0.22],
-        leftLowerArm: [-0.4 - 0.3 * swing, 0, 0],
-        rightLowerArm: [-0.4 + 0.3 * swing, 0, 0],
-        leftUpperLeg: [0.05, 0.04 * swing, 0],
-        rightUpperLeg: [0.05, -0.04 * swing, 0],
-        leftLowerLeg: [0.08, 0, 0],
-        rightLowerLeg: [0.08, 0, 0],
-      };
-    }
-    case 'electro-shuffle': {
-      const snap = softSnap(time, 128);
-      const kick = wave(time, 2.2);
-      return {
-        hips: [0.08 + 0.06 * Math.abs(b), 0, -0.14 * kick],
-        chest: [-0.06, 0.08 * snap, 0.08 * kick],
-        head: [0.04 * snap, -0.06 * snap, 0],
-        leftUpperArm: [-0.65 - 0.28 * snap, 0.1 * snap, -0.5],
-        rightUpperArm: [-0.65 + 0.28 * snap, -0.1 * snap, 0.5],
-        leftLowerArm: [-0.9 + 0.18 * snap, 0, 0],
-        rightLowerArm: [-0.9 - 0.18 * snap, 0, 0],
-        leftUpperLeg: [0.32 * kick, 0, 0.1 * kick],
-        rightUpperLeg: [-0.32 * kick, 0, 0.1 * kick],
-        leftLowerLeg: [0.38 * Math.max(0, -kick), 0, 0],
-        rightLowerLeg: [0.38 * Math.max(0, kick), 0, 0],
-      };
-    }
-    case 'take-the-l': {
-      const bounce = Math.abs(beat(time, 105));
-      return {
-        hips: [0.1 + 0.08 * bounce, 0.1 * step, 0],
-        chest: [-0.06, -0.08 * step, 0],
-        head: [0.06 * bounce, 0.1, 0],
-        rightUpperArm: [-1.55, 0.12, 0.35],
-        rightLowerArm: [-1.55, 0.2, 0],
-        rightHand: [0.15, 0.25, 0.1],
-        leftUpperArm: [-0.35 - 0.15 * bounce, 0, -0.45],
-        leftLowerArm: [-0.7, 0, 0],
-        leftUpperLeg: [0.22 * bounce, 0.08 * step, 0],
-        rightUpperLeg: [0.22 * bounce, -0.08 * step, 0],
-        leftLowerLeg: [0.32 * bounce, 0, 0],
-        rightLowerLeg: [0.32 * bounce, 0, 0],
-      };
-    }
-    case 'hammer-fresh': {
-      // Low wide stance with swinging elbows (classic hammer-pants energy).
-      const swing = wave(time, 1.35);
-      return {
-        hips: [0.16 + 0.06 * Math.abs(b), 0.18 * swing, 0],
-        chest: [-0.14, -0.12 * swing, 0.08 * swing],
-        leftUpperArm: [-0.85 - 0.2 * swing, 0, -0.95],
-        rightUpperArm: [-0.85 + 0.2 * swing, 0, 0.95],
-        leftLowerArm: [-1.25, 0.15 * swing, 0],
-        rightLowerArm: [-1.25, -0.15 * swing, 0],
-        leftUpperLeg: [0.28, 0.18 * swing, -0.12],
-        rightUpperLeg: [0.28, -0.18 * swing, 0.12],
-        leftLowerLeg: [0.42 + 0.1 * Math.abs(b), 0, 0],
-        rightLowerLeg: [0.42 + 0.1 * Math.abs(b), 0, 0],
-      };
-    }
-    case 'renegade-hit': {
-      const hit = softSnap(time, 112);
-      const phase = (time * 1.05) % 1;
-      const armLift = phase < 0.5 ? ease(phase * 2) : ease((1 - phase) * 2);
-      return {
-        hips: [0.08 + 0.08 * Math.abs(b), 0.06 * hit, -0.06 * step],
-        chest: [-0.08, -0.06 * hit, 0.08 * hit],
-        head: [0.04 * armLift, 0.05 * hit, 0],
-        leftUpperArm: [-0.55 - 0.75 * armLift, 0.06 * hit, -0.35],
-        rightUpperArm: [-0.55 - 0.75 * (1 - armLift), -0.06 * hit, 0.35],
-        leftLowerArm: [-0.7 - 0.4 * armLift, 0, 0],
-        rightLowerArm: [-0.7 - 0.4 * (1 - armLift), 0, 0],
-        leftUpperLeg: [0.28 * step, 0.06 * hit, 0],
-        rightUpperLeg: [-0.28 * step, -0.06 * hit, 0],
-        leftLowerLeg: [0.35 * Math.max(0, -step), 0, 0],
-        rightLowerLeg: [0.35 * Math.max(0, step), 0, 0],
-      };
-    }
-    case 'say-so-bounce': {
-      const soft = wave(time, 0.95);
-      const bounce = Math.abs(b);
-      return {
-        hips: [0.07 + 0.07 * bounce, 0.05 * soft, 0],
-        chest: [-0.05, -0.04 * soft, 0.04 * soft],
-        head: [0.03 * wave(time, 0.7), 0.04 * soft, 0],
-        leftUpperArm: [-0.42 - 0.12 * soft, 0, -0.48],
-        rightUpperArm: [-0.42 + 0.12 * soft, 0, 0.48],
-        leftLowerArm: [-0.65 + 0.1 * b, 0, 0],
-        rightLowerArm: [-0.65 - 0.1 * b, 0, 0],
-        leftHand: [0, 0, 0.12 * soft],
-        rightHand: [0, 0, -0.12 * soft],
-        leftUpperLeg: [0.08 * bounce, 0.04 * soft, 0],
-        rightUpperLeg: [0.08 * bounce, -0.04 * soft, 0],
-        leftLowerLeg: [0.22 * bounce, 0, 0],
-        rightLowerLeg: [0.22 * bounce, 0, 0],
-      };
-    }
-    case 'pony-gallop': {
-      const gallop = wave(time, 1.7);
-      return {
-        hips: [0.12 + 0.08 * Math.abs(gallop), 0, 0.08 * gallop],
-        chest: [-0.1, 0, -0.06 * gallop],
-        leftUpperArm: [-0.35 + 0.55 * gallop, 0, -0.25],
-        rightUpperArm: [-0.35 - 0.55 * gallop, 0, 0.25],
-        leftLowerArm: [-0.55, 0, 0],
-        rightLowerArm: [-0.55, 0, 0],
-        leftUpperLeg: [0.55 * gallop, 0, 0],
-        rightUpperLeg: [-0.55 * gallop, 0, 0],
-        leftLowerLeg: [0.5 * Math.max(0, -gallop), 0, 0],
-        rightLowerLeg: [0.5 * Math.max(0, gallop), 0, 0],
-      };
-    }
-    case 'whip-nae': {
-      const phase = (time * 0.85) % 1;
-      const whip = phase < 0.45;
-      const t = whip ? ease(phase / 0.45) : ease((phase - 0.45) / 0.55);
-      if (whip) {
-        return {
-          hips: [0.08, 0.2 * (t - 0.5), -0.1],
-          chest: [-0.05, -0.15 * (t - 0.5), 0.1],
-          rightUpperArm: [-0.4 - 1.2 * t, 0, 0.55],
-          rightLowerArm: [-0.3 - 0.8 * t, 0, 0],
-          leftUpperArm: [-0.35, 0, -0.45],
-          leftUpperLeg: [0.15 * t, 0.1, 0],
-          rightUpperLeg: [-0.1 * t, -0.1, 0],
-        };
-      }
-      return {
-        hips: [0.12 + 0.1 * Math.abs(b), 0.15 * step, 0],
-        chest: [-0.08, -0.1 * step, 0.08 * step],
-        leftUpperArm: [-0.95 - 0.2 * b, 0, -0.75],
-        rightUpperArm: [-0.95 + 0.2 * b, 0, 0.75],
-        leftLowerArm: [-1.1, 0, 0],
-        rightLowerArm: [-1.1, 0, 0],
-        leftHand: [0, 0.25 * b, 0],
-        rightHand: [0, -0.25 * b, 0],
-        leftUpperLeg: [0.2 * Math.abs(b), 0.12 * step, 0],
-        rightUpperLeg: [0.2 * Math.abs(b), -0.12 * step, 0],
-        leftLowerLeg: [0.35 * Math.abs(b), 0, 0],
-        rightLowerLeg: [0.35 * Math.abs(b), 0, 0],
-      };
-    }
-    case 'carlton-bounce': {
-      const up = Math.abs(beat(time, 108));
-      return {
-        hips: [0.06 + 0.12 * up, 0.08 * step, 0],
-        chest: [-0.08 + 0.05 * up, -0.06 * step, 0],
-        head: [0.05 * up, 0.08 * step, 0],
-        leftUpperArm: [-1.65 + 0.15 * up, 0, -0.55],
-        rightUpperArm: [-1.65 + 0.15 * up, 0, 0.55],
-        leftLowerArm: [-0.35 - 0.15 * up, 0, 0],
-        rightLowerArm: [-0.35 - 0.15 * up, 0, 0],
-        leftHand: [0, 0, 0.2 * wave(time, 1.2)],
-        rightHand: [0, 0, -0.2 * wave(time, 1.2)],
-        leftUpperLeg: [0.15 * up, 0.08 * step, 0],
-        rightUpperLeg: [0.15 * up, -0.08 * step, 0],
-        leftLowerLeg: [0.28 * up, 0, 0],
-        rightLowerLeg: [0.28 * up, 0, 0],
-      };
-    }
-    case 'macarena-wave': {
-      const phase = Math.floor((time * 0.7) % 8);
-      const local = ease((time * 0.7) % 1);
-      const poses: ProceduralPose[] = [
-        {
-          rightUpperArm: [-0.4, 0, 0.35],
-          rightLowerArm: [-0.2, 0, 0],
-          rightHand: [0.2, 0, 0],
-        },
-        {
-          leftUpperArm: [-0.4, 0, -0.35],
-          leftLowerArm: [-0.2, 0, 0],
-          leftHand: [0.2, 0, 0],
-        },
-        {
-          rightUpperArm: [-1.1, 0, 0.45],
-          rightLowerArm: [-1.2, 0, 0],
-        },
-        {
-          leftUpperArm: [-1.1, 0, -0.45],
-          leftLowerArm: [-1.2, 0, 0],
-        },
-        {
-          rightUpperArm: [-0.85, 0, 0.55],
-          rightHand: [0, 0.3, 0],
-        },
-        {
-          leftUpperArm: [-0.85, 0, -0.55],
-          leftHand: [0, -0.3, 0],
-        },
-        {
-          leftUpperArm: [-0.55, 0, -0.85],
-          rightUpperArm: [-0.55, 0, 0.85],
-          hips: [0.08 * local, 0, 0],
-        },
-        {
-          hips: [0.12 + 0.08 * Math.abs(b), 0.2 * step, 0],
-          leftUpperArm: [-0.35, 0, -0.35],
-          rightUpperArm: [-0.35, 0, 0.35],
-        },
-      ];
-      return {
-        hips: [0.05, 0.08 * step, 0],
-        chest: [-0.04, -0.05 * step, 0],
-        ...poses[phase],
-      };
-    }
-    case 'thriller-walk': {
-      const crawl = wave(time, 0.85);
-      return {
-        hips: [0.06, 0.12 * crawl, -0.08 * crawl],
-        spine: [0.12, 0, 0],
-        chest: [0.1, -0.08 * crawl, 0.06 * crawl],
-        head: [0.18, 0.1 * crawl, 0],
-        leftUpperArm: [-0.55, 0.25, -0.65],
-        rightUpperArm: [-0.55, -0.25, 0.65],
-        leftLowerArm: [-0.35, 0.2, 0],
-        rightLowerArm: [-0.35, -0.2, 0],
-        leftHand: [0.25, 0, 0],
-        rightHand: [0.25, 0, 0],
-        leftUpperLeg: [0.35 * crawl, 0, 0],
-        rightUpperLeg: [-0.35 * crawl, 0, 0],
-        leftLowerLeg: [0.3 * Math.max(0, -crawl), 0, 0],
-        rightLowerLeg: [0.3 * Math.max(0, crawl), 0, 0],
-      };
-    }
-    case 'toosie-slide': {
-      const slide = wave(time, 1.15);
-      const point = pulse(time, 0.9);
-      return {
-        hips: [0.08, 0, -0.24 * slide],
-        chest: [-0.05, 0, 0.12 * slide],
-        head: [0.04 * point, 0.08 * slide, 0],
-        rightUpperArm: [-0.55 - 0.7 * point, 0, 0.45],
-        rightLowerArm: [-0.4 - 0.5 * point, 0, 0],
-        leftUpperArm: [-0.4, 0, -0.55],
-        leftLowerArm: [-0.65, 0, 0],
-        leftUpperLeg: [0.22 * slide, 0, 0.18 * slide],
-        rightUpperLeg: [-0.22 * slide, 0, 0.18 * slide],
-        leftLowerLeg: [0.28 * Math.max(0, -slide), 0, 0],
-        rightLowerLeg: [0.28 * Math.max(0, slide), 0, 0],
-      };
-    }
-    case 'scenario-groove': {
-      const hit = softSnap(time, 120);
-      return {
-        hips: [0.1 + 0.08 * Math.abs(b), 0.08 * hit, -0.08 * step],
-        chest: [-0.1, -0.08 * hit, 0.08 * hit],
-        head: [0.05 * Math.abs(b), 0.06 * hit, 0],
-        leftUpperArm: [-0.7 - 0.35 * hit, 0.08 * hit, -0.4],
-        rightUpperArm: [-0.7 + 0.35 * hit, -0.08 * hit, 0.4],
-        leftLowerArm: [-0.9 + 0.2 * b, 0, 0],
-        rightLowerArm: [-0.9 - 0.2 * b, 0, 0],
-        leftUpperLeg: [0.3 * step, 0.08 * hit, 0],
-        rightUpperLeg: [-0.3 * step, -0.08 * hit, 0],
-        leftLowerLeg: [0.35 * Math.max(0, -step), 0, 0],
-        rightLowerLeg: [0.35 * Math.max(0, step), 0, 0],
-      };
-    }
+      return smoothDance(time, { bpm: 100, bounce: 0.04, stepAmp: 0.05, armSwing: 0.28, armLift: 0.12, style: 'wave' });
+    case 'freestyle-groove':
+      return smoothDance(time, { bpm: 114, bounce: 0.1, stepAmp: 0.18, armSwing: 0.24, knee: 0.2 });
+    case 'justice-bounce':
+      return smoothDance(time, { bpm: 118, bounce: 0.12, stepAmp: 0.1, armSwing: 0.12, knee: 0.24, style: 'justice' });
+    case 'floss-swing':
+      return smoothDance(time, { bpm: 116, bounce: 0.06, stepAmp: 0.08, armSwing: 0.35, style: 'floss' });
+    case 'electro-shuffle':
+      return smoothDance(time, { bpm: 126, bounce: 0.08, stepAmp: 0.16, armSwing: 0.18, knee: 0.16, style: 'robot' });
+    case 'take-the-l':
+      return smoothDance(time, { bpm: 108, bounce: 0.09, stepAmp: 0.1, armSwing: 0.12, knee: 0.16, style: 'point' });
+    case 'hammer-fresh':
+      return smoothDance(time, { bpm: 112, bounce: 0.09, stepAmp: 0.12, armSwing: 0.2, knee: 0.18 });
+    case 'renegade-hit':
+      return smoothDance(time, { bpm: 114, bounce: 0.09, stepAmp: 0.16, armSwing: 0.22, knee: 0.18 });
+    case 'say-so-bounce':
+      return smoothDance(time, { bpm: 104, bounce: 0.09, stepAmp: 0.12, armSwing: 0.16, knee: 0.16 });
+    case 'pony-gallop':
+      return smoothDance(time, { bpm: 120, bounce: 0.08, stepAmp: 0.26, armSwing: 0.22, knee: 0.22, style: 'run' });
+    case 'whip-nae':
+      return smoothDance(time, { bpm: 116, bounce: 0.1, stepAmp: 0.12, armSwing: 0.2, knee: 0.18, style: 'justice' });
+    case 'carlton-bounce':
+      return smoothDance(time, { bpm: 108, bounce: 0.1, stepAmp: 0.08, armSwing: 0.12, armLift: 0.35, knee: 0.16 });
+    case 'macarena-wave':
+      return smoothDance(time, { bpm: 104, bounce: 0.06, stepAmp: 0.1, armSwing: 0.2, armLift: 0.1, style: 'wave' });
+    case 'thriller-walk':
+      return smoothDance(time, { bpm: 96, bounce: 0.05, stepAmp: 0.14, armSwing: 0.1, knee: 0.14, style: 'robot' });
+    case 'toosie-slide':
+      return smoothDance(time, { bpm: 112, bounce: 0.07, stepAmp: 0.16, armSwing: 0.14, knee: 0.14, style: 'point' });
+    case 'scenario-groove':
+      return smoothDance(time, { bpm: 118, bounce: 0.1, stepAmp: 0.16, armSwing: 0.22, knee: 0.18 });
     case 'open-hand-explain':
       return {
         chest: [0, 0.08 * sway, 0],
@@ -925,12 +602,6 @@ export function sampleProceduralPose(
 /** Root yaw is disabled for dances — facing is locked in the animation hook. */
 export const MAX_DANCE_ROOT_YAW = 0;
 
-/**
- * Soften harsh sign snaps so beat-synced dances do not pop into broken poses.
- */
-function softSnap(time: number, bpm = 110): number {
-  return Math.tanh(beat(time, bpm) * 2.4);
-}
 
 const DANCE_PRESETS = new Set<ProceduralPreset>([
   'griddy-celebration',

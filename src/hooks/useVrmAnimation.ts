@@ -62,6 +62,8 @@ export function playbackRate(
 ): number {
   if (type === 'IDLE') return 0.96;
   if (type === 'TALK') return 1.08;
+  // Keep dances at natural tempo — faster rates looked jittery on procedural.
+  if (type === 'DANCE') return playback === 'once' ? 1.05 : 1.0;
   return playback === 'once' ? 1.25 : 1.12;
 }
 
@@ -314,10 +316,15 @@ export function useVrmAnimation(vrm: VRM | null) {
         active.playback === 'loop'
           ? active.elapsed % duration
           : Math.min(active.elapsed, duration);
-      const pose = frontFacingProceduralPose({
-        ...RELAXED_REST_POSE,
-        ...sampleProceduralPose(active.preset, sampleTime),
-      });
+      // Dances already include a full relaxed baseline; don't double-merge rest.
+      const sampled = sampleProceduralPose(active.preset, sampleTime);
+      const pose = frontFacingProceduralPose(
+        active.preset === 'breathing-idle' ||
+          active.preset === 'conversational-talk' ||
+          active.preset === 'calm-listen'
+          ? { ...RELAXED_REST_POSE, ...sampled }
+          : { ...RELAXED_REST_POSE, ...sampled },
+      );
       const weight = proceduralBlendWeight(
         active.elapsed,
         duration,
@@ -336,6 +343,7 @@ export function useVrmAnimation(vrm: VRM | null) {
           binding = { base: node.quaternion.clone(), node };
           proceduralBones.current.set(bone, binding);
         }
+        // Apply as local euler offset from the VRM rest (base) pose.
         const offset = new THREE.Quaternion().setFromEuler(
           new THREE.Euler(rotation[0], rotation[1], rotation[2], 'XYZ'),
         );
@@ -349,18 +357,12 @@ export function useVrmAnimation(vrm: VRM | null) {
       const rootBinding = proceduralRoot.current;
       if (rootBinding) {
         const rootMotion = sampleProceduralRoot(active.preset, sampleTime);
-        // Position bounce only — never accumulate walk-off or full turns.
-        vrm.scene.position
-          .copy(rootBinding.position)
-          .addScaledVector(
-            new THREE.Vector3(
-              rootMotion.position[0] * 0.35,
-              rootMotion.position[1],
-              rootMotion.position[2] * 0.35,
-            ),
-            weight,
-          );
-        // Keep facing the camera; yaw accents stay on torso bones only.
+        // Tiny bounce only — never walk off-frame or yaw away from camera.
+        vrm.scene.position.set(
+          rootBinding.position.x,
+          rootBinding.position.y + rootMotion.position[1] * weight,
+          rootBinding.position.z,
+        );
         vrm.scene.quaternion.copy(rootBinding.quaternion);
       }
 
