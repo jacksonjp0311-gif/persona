@@ -184,12 +184,13 @@ export function proceduralBlendWeight(
   duration: number,
   playback: 'loop' | 'once',
 ): number {
-  // Soft ease-in so dance switches never pop.
-  const easeIn = ease(Math.min(1, Math.max(0, elapsed / 0.28)));
-  if (playback === 'loop') return easeIn;
+  // Full weight immediately for loops so deploy never looks frozen.
+  // Brief ease-in still softens the first frames of a switch.
+  const easeIn = ease(Math.min(1, Math.max(0, elapsed / 0.15)));
+  if (playback === 'loop') return Math.max(0.85, easeIn);
   const remaining = Math.max(0, duration - elapsed);
-  const easeOut = ease(Math.min(1, remaining / 0.22));
-  return easeIn * easeOut;
+  const easeOut = ease(Math.min(1, remaining / 0.18));
+  return Math.max(0.5, easeIn * easeOut);
 }
 
 type Vec3 = readonly [number, number, number];

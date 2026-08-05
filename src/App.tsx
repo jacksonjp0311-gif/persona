@@ -14,13 +14,10 @@ import {
 } from './components/DanceSelector';
 import {
   animationUrlsForType,
-  immediateVoiceAnimation,
-  proceduralPresetForType,
   type AnimationType,
 } from './animation-catalog';
 import {
   finishBodyAnimationOverride,
-  resolveBodyAnimation,
   type BodyAnimationOverride,
 } from './animation-priority';
 import {
@@ -31,7 +28,6 @@ import { resolveDeployedModels } from './crew-roster';
 import {
   FEATURED_DANCE_IDS,
   FEATURED_DANCE_LABELS,
-  dancePlaybackUrls,
   isFeaturedDanceId,
 } from './dance-catalog';
 
@@ -42,20 +38,24 @@ const INITIAL_STATE: VoiceState = {
   phase: 'inactive',
 };
 
-const BODY_IDLE_DELAY_MS = 650;
+/** Always-on default dance when deployed and not speaking. */
+const DEFAULT_DANCE_PRESET = 'freestyle-groove';
+const DEFAULT_DANCE_NAME = 'freestyle-groove';
 const EMPTY_ANIMATION_URLS: string[] = [];
+/** How often AUTO mode rotates to another featured dance. */
+const AUTO_DANCE_ROTATE_MS = 12_000;
 
 export function App() {
   const [voice, setVoice] = useState<VoiceState>(INITIAL_STATE);
   const [audioLevel, setAudioLevel] = useState(0);
-  const [voiceAnimation, setVoiceAnimation] = useState<AnimationType>('IDLE');
   const [bodyOverride, setBodyOverride] =
     useState<BodyAnimationOverride | null>(null);
   const [settings, setSettings] =
     useState<PersonaSettingsSnapshot>(SETTINGS_FALLBACK);
   const [lockedDanceId, setLockedDanceId] = useState<string | null>(null);
-  const userDanceRequestId = useRef(0);
+  const danceRequestId = useRef(0);
   const lockedDanceIdRef = useRef<string | null>(null);
+  const autoIndexRef = useRef(0);
 
   useEffect(() => {
     lockedDanceIdRef.current = lockedDanceId;
@@ -73,30 +73,39 @@ export function App() {
       } else if (event.type === 'audio-level') {
         setAudioLevel(event.level);
       } else if (event.type === 'animation') {
-        if (event.requestId != null) {
-          const source = event.source ?? 'command';
-          // User-locked dances win over ambient rotation.
-          if (source === 'ambient' && lockedDanceIdRef.current != null) {
-            return;
-          }
-          const isDance =
-            event.animation === 'DANCE' || source === 'ambient';
-          setBodyOverride({
-            animation: event.animation,
-            animationName: event.animationName,
-            // Procedural dances must not also load VRMA clips.
-            animationUrls:
-              isDance && event.proceduralPreset
-                ? EMPTY_ANIMATION_URLS
-                : event.animationUrls,
-            mirror: isDance ? false : event.mirror,
-            proceduralPreset: event.proceduralPreset,
-            requestId: event.requestId,
-            source,
-          });
-        } else if (event.animation !== 'CUSTOM') {
-          setVoiceAnimation(event.animation);
+        if (event.requestId == null) return;
+        const source = event.source ?? 'command';
+        // User lock wins over ambient rotation from main.
+        if (source === 'ambient' && lockedDanceIdRef.current != null) {
+          return;
         }
+        // Commands (one-shots) still apply; ambient is handled client-side.
+        if (source === 'ambient') {
+          // Prefer client auto-rotate; accept main ambient only if unlocked.
+          setBodyOverride({
+            animation: 'DANCE',
+            animationName: event.animationName ?? DEFAULT_DANCE_NAME,
+            animationUrls: EMPTY_ANIMATION_URLS,
+            mirror: false,
+            proceduralPreset:
+              event.proceduralPreset ?? DEFAULT_DANCE_PRESET,
+            requestId: event.requestId,
+            source: 'ambient',
+          });
+          return;
+        }
+        setBodyOverride({
+          animation: event.animation,
+          animationName: event.animationName,
+          animationUrls:
+            event.animation === 'DANCE' && event.proceduralPreset
+              ? EMPTY_ANIMATION_URLS
+              : event.animationUrls,
+          mirror: event.animation === 'DANCE' ? false : event.mirror,
+          proceduralPreset: event.proceduralPreset,
+          requestId: event.requestId,
+          source,
+        });
       }
     });
   }, []);
@@ -116,9 +125,6 @@ export function App() {
     voice.activity === 'speaking' &&
     !voice.outputMuted;
 
-  // Keep the desktop character dancing whenever it is not mid-speech.
-  const ambientDanceAllowed = !speaking;
-
   const danceOptions = useMemo<DanceOption[]>(() => {
     const byId = new Map(
       settings.animations.map((animation) => [animation.id, animation]),
@@ -133,17 +139,12 @@ export function App() {
             ? FEATURED_DANCE_LABELS[animation.id]
             : animation.animation_name,
           animationName: animation.animation_name,
-          // Prefer procedural for reliability on mixed VRM bodies.
-          animationUrls: dancePlaybackUrls(
-            animation.asset_urls,
-            animation.procedural_preset,
-          ),
+          animationUrls: EMPTY_ANIMATION_URLS,
           proceduralPreset: animation.procedural_preset,
         } satisfies DanceOption,
       ];
     });
     if (featured.length > 0) return featured;
-    // Fallback if library is partial: first 8 procedural dances.
     return settings.animations
       .filter(
         (animation) =>
@@ -155,41 +156,58 @@ export function App() {
         id: animation.id,
         label: animation.animation_name,
         animationName: animation.animation_name,
-        animationUrls: dancePlaybackUrls(
-          animation.asset_urls,
-          animation.procedural_preset,
-        ),
+        animationUrls: EMPTY_ANIMATION_URLS,
         proceduralPreset: animation.procedural_preset,
       }));
   }, [settings.animations]);
 
-  const applyUserDance = useCallback((dance: DanceOption) => {
-    userDanceRequestId.current += 1;
-    setLockedDanceId(dance.id);
-    setBodyOverride({
-      animation: 'DANCE',
-      animationName: dance.animationName,
-      animationUrls: dancePlaybackUrls(
-        dance.animationUrls,
-        dance.proceduralPreset,
-      ),
-      mirror: false,
-      proceduralPreset: dance.proceduralPreset,
-      requestId: userDanceRequestId.current,
-      source: 'user',
-    });
-  }, []);
+  const startDance = useCallback(
+    (
+      dance: Pick<
+        DanceOption,
+        'animationName' | 'proceduralPreset' | 'id'
+      > | null,
+      source: 'ambient' | 'user',
+    ) => {
+      danceRequestId.current += 1;
+      const preset =
+        dance?.proceduralPreset ?? DEFAULT_DANCE_PRESET;
+      const name = dance?.animationName ?? DEFAULT_DANCE_NAME;
+      setBodyOverride({
+        animation: 'DANCE',
+        animationName: name,
+        animationUrls: EMPTY_ANIMATION_URLS,
+        mirror: false,
+        proceduralPreset: preset,
+        requestId: danceRequestId.current,
+        source,
+      });
+    },
+    [],
+  );
+
+  const applyUserDance = useCallback(
+    (dance: DanceOption) => {
+      setLockedDanceId(dance.id);
+      startDance(dance, 'user');
+    },
+    [startDance],
+  );
 
   const unlockAutoDance = useCallback(() => {
     setLockedDanceId(null);
-    // Drop the lock so ambient rotation can take over again.
-    setBodyOverride((current) =>
-      current?.source === 'user' ? null : current,
-    );
-  }, []);
+    // Immediately resume continuous auto dance (no idle freeze).
+    const next =
+      danceOptions[
+        autoIndexRef.current % Math.max(danceOptions.length, 1)
+      ] ?? null;
+    startDance(next, 'ambient');
+  }, [danceOptions, startDance]);
 
+  // Non-stop dancing while deployed: kick off immediately and keep rotating
+  // unless the user locked a move or the character is speaking.
   useEffect(() => {
-    if (!ambientDanceAllowed) {
+    if (speaking) {
       if (
         bodyOverride?.source === 'ambient' ||
         bodyOverride?.source === 'user'
@@ -198,34 +216,50 @@ export function App() {
       }
       return;
     }
-    if (lockedDanceId == null) return;
-    if (bodyOverride?.source === 'user' && bodyOverride.animationName) return;
-    const dance = danceOptions.find((option) => option.id === lockedDanceId);
-    if (dance) applyUserDance(dance);
-  }, [
-    ambientDanceAllowed,
-    applyUserDance,
-    bodyOverride,
-    danceOptions,
-    lockedDanceId,
-  ]);
 
-  useEffect(() => {
-    const immediateAnimation = immediateVoiceAnimation(voice);
-    if (immediateAnimation != null) {
-      setVoiceAnimation(immediateAnimation);
-      if (immediateAnimation === 'IDLE') setAudioLevel(0);
+    if (lockedDanceId != null) {
+      if (bodyOverride?.source === 'user' && bodyOverride.proceduralPreset) {
+        return;
+      }
+      const locked = danceOptions.find((d) => d.id === lockedDanceId);
+      if (locked) startDance(locked, 'user');
       return;
     }
 
-    const timer = window.setTimeout(
-      () => setVoiceAnimation('IDLE'),
-      BODY_IDLE_DELAY_MS,
-    );
-    return () => window.clearTimeout(timer);
-  }, [voice]);
+    // No lock: ensure a dance is always active.
+    if (
+      bodyOverride?.source === 'ambient' &&
+      bodyOverride.proceduralPreset
+    ) {
+      return;
+    }
+    const seed =
+      danceOptions[
+        autoIndexRef.current % Math.max(danceOptions.length, 1)
+      ] ?? null;
+    startDance(seed, 'ambient');
+  }, [
+    bodyOverride,
+    danceOptions,
+    lockedDanceId,
+    speaking,
+    startDance,
+  ]);
 
-  const animation = resolveBodyAnimation(voiceAnimation, bodyOverride);
+  // AUTO mode: rotate featured dances forever.
+  useEffect(() => {
+    if (speaking || lockedDanceId != null || danceOptions.length === 0) {
+      return;
+    }
+    const timer = window.setInterval(() => {
+      autoIndexRef.current =
+        (autoIndexRef.current + 1) % danceOptions.length;
+      const next = danceOptions[autoIndexRef.current];
+      startDance(next, 'ambient');
+    }, AUTO_DANCE_ROTATE_MS);
+    return () => window.clearInterval(timer);
+  }, [danceOptions, lockedDanceId, speaking, startDance]);
+
   const deployedModels = useMemo(
     () => resolveDeployedModels(settings),
     [settings],
@@ -238,42 +272,34 @@ export function App() {
       })),
     [deployedModels],
   );
+
+  // Body animation: talk while speaking, otherwise always dance.
+  const animation: AnimationType = speaking
+    ? 'TALK'
+    : bodyOverride != null &&
+        bodyOverride.animation !== 'DANCE' &&
+        bodyOverride.animation !== 'CUSTOM'
+      ? bodyOverride.animation
+      : 'DANCE';
+
   const animationRequest = bodyOverride?.requestId ?? 0;
-  const configuredAnimationUrls = useMemo(
-    () => animationUrlsForType(settings.animations, animation),
-    [animation, settings.animations],
+
+  const talkUrls = useMemo(
+    () => animationUrlsForType(settings.animations, 'TALK'),
+    [settings.animations],
   );
-  const configuredProceduralPreset = useMemo(
-    () => proceduralPresetForType(settings.animations, animation),
-    [animation, settings.animations],
-  );
-  // Prefer the active dance override. Avoid forcing calm-listen over dance
-  // while the voice runtime is merely listening.
-  const proceduralPreset =
-    bodyOverride?.proceduralPreset ??
-    (animation === 'DANCE'
-      ? configuredProceduralPreset
-      : voice.phase === 'active' &&
-          voice.activity === 'listening' &&
-          bodyOverride == null
-        ? 'calm-listen'
-        : configuredProceduralPreset);
-  // Stable empty array when dancing procedurally — new [] each render
-  // restarts the animation loop and freezes/breaks motion.
-  const animationUrls = useMemo(() => {
-    if (bodyOverride?.animationUrls) return bodyOverride.animationUrls;
-    if (animation === 'DANCE' && proceduralPreset) return EMPTY_ANIMATION_URLS;
-    return configuredAnimationUrls;
-  }, [
-    animation,
-    bodyOverride?.animationUrls,
-    configuredAnimationUrls,
-    proceduralPreset,
-  ]);
+
+  const animationUrls = speaking
+    ? talkUrls
+    : EMPTY_ANIMATION_URLS;
+
+  const proceduralPreset = speaking
+    ? 'conversational-talk'
+    : (bodyOverride?.proceduralPreset ?? DEFAULT_DANCE_PRESET);
+
   const overrideRequestId = bodyOverride?.requestId ?? null;
   const handleAnimationComplete = useCallback(() => {
     if (overrideRequestId == null) return;
-    // User-locked and ambient dances loop; never clear them on complete.
     if (
       bodyOverride?.source === 'user' ||
       bodyOverride?.source === 'ambient'
@@ -284,11 +310,6 @@ export function App() {
       finishBodyAnimationOverride(current, overrideRequestId),
     );
   }, [bodyOverride?.source, overrideRequestId]);
-
-  const loopingOverride =
-    bodyOverride == null ||
-    bodyOverride.source === 'ambient' ||
-    bodyOverride.source === 'user';
 
   return deployedCharacters.length > 0 ? (
     <main className="app">
@@ -306,10 +327,10 @@ export function App() {
         animationUrls={animationUrls}
         audioLevel={audioLevel}
         characterSize={settings.character_size}
-        mirror={bodyOverride?.mirror ?? false}
+        mirror={false}
         characters={deployedCharacters}
         onAnimationComplete={handleAnimationComplete}
-        playback={loopingOverride ? 'loop' : 'once'}
+        playback="loop"
         proceduralPreset={proceduralPreset}
         speaking={speaking}
       />

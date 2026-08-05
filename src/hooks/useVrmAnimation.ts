@@ -131,7 +131,8 @@ export function useVrmAnimation(vrm: VRM | null) {
         completed: false,
         elapsed: 0,
         onComplete,
-        playback,
+        // Dances must loop or the body freezes after one cycle.
+        playback: type === 'DANCE' ? 'loop' : playback,
         preset,
       };
     },
@@ -212,21 +213,42 @@ export function useVrmAnimation(vrm: VRM | null) {
       const generation = ++requestGeneration.current;
       pendingCompletion.current = null;
       try {
-        // Dances with a procedural preset always use procedural motion.
-        const preferProceduralDance =
-          type === 'DANCE' && isProceduralPreset(proceduralPreset);
-        const url = preferProceduralDance
-          ? null
-          : randomAnimationUrl(
-              animationUrls,
-              previousAnimation.current.get(type) ?? null,
-            );
+        // Dances always prefer procedural motion — VRMA clips are unreliable.
+        // Fall back to freestyle if a bad/missing preset slips through.
+        const dancePreset =
+          type === 'DANCE'
+            ? isProceduralPreset(proceduralPreset)
+              ? proceduralPreset
+              : ('freestyle-groove' as const)
+            : null;
+        if (dancePreset) {
+          activateProcedural(type, dancePreset, playback, onComplete);
+          return;
+        }
+        if (type !== 'DANCE' && isProceduralPreset(proceduralPreset) && animationUrls.length === 0) {
+          activateProcedural(type, proceduralPreset, playback, onComplete);
+          return;
+        }
+        const url = randomAnimationUrl(
+          animationUrls,
+          previousAnimation.current.get(type) ?? null,
+        );
         if (!url) {
           if (isProceduralPreset(proceduralPreset)) {
             activateProcedural(
               type,
               proceduralPreset,
               playback,
+              onComplete,
+            );
+            return;
+          }
+          // Last resort: keep the body alive with freestyle rather than freezing.
+          if (type === 'DANCE' || type === 'IDLE') {
+            activateProcedural(
+              type === 'DANCE' ? 'DANCE' : type,
+              type === 'IDLE' ? 'breathing-idle' : 'freestyle-groove',
+              playback === 'once' ? 'loop' : playback,
               onComplete,
             );
             return;

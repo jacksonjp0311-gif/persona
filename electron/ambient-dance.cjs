@@ -1,17 +1,17 @@
 "use strict";
 
-/** Start dancing almost immediately after deploy / resume. */
+/** Start dancing immediately after deploy / resume. */
 const FIRST_AMBIENT_DANCE_DELAY_MS = {
-  min: 120,
-  max: 500,
+  min: 0,
+  max: 50,
 };
 /**
  * While a dance is already looping, rotate to another style on this window.
  * Gaps between styles are zero because ambient dances loop continuously.
  */
 const NEXT_AMBIENT_DANCE_DELAY_MS = {
-  min: 14_000,
-  max: 24_000,
+  min: 10_000,
+  max: 14_000,
 };
 
 function ambientDanceDelay(firstDance, random = Math.random) {
