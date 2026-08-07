@@ -1,5 +1,6 @@
 "use strict";
 
+const fs = require("node:fs");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
 const {
@@ -425,6 +426,11 @@ function rendererUrl(view = null) {
 }
 
 function applicationIconPath() {
+  // Prefer the Windows .ico for taskbar/tray/shortcuts; PNG remains for UI assets.
+  const ico = path.join(__dirname, "..", "icons", "persona.ico");
+  if (process.platform === "win32" && fs.existsSync(ico)) {
+    return ico;
+  }
   return path.join(
     __dirname,
     "..",
