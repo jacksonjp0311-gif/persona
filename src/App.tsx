@@ -204,54 +204,72 @@ export function App() {
     startDance(next, 'ambient');
   }, [danceOptions, startDance]);
 
-  // Non-stop dancing while deployed: kick off immediately and keep rotating
-  // unless the user locked a move or the character is speaking.
+  // Non-stop dancing while deployed (client-driven — does not wait on main).
   useEffect(() => {
     if (speaking) {
-      if (
-        bodyOverride?.source === 'ambient' ||
-        bodyOverride?.source === 'user'
-      ) {
-        setBodyOverride(null);
-      }
+      setBodyOverride((current) =>
+        current?.source === 'ambient' || current?.source === 'user'
+          ? null
+          : current,
+      );
       return;
     }
 
     if (lockedDanceId != null) {
-      if (bodyOverride?.source === 'user' && bodyOverride.proceduralPreset) {
-        return;
-      }
-      const locked = danceOptions.find((d) => d.id === lockedDanceId);
-      if (locked) startDance(locked, 'user');
+      setBodyOverride((current) => {
+        if (current?.source === 'user' && current.proceduralPreset) {
+          return current;
+        }
+        const locked = danceOptions.find((d) => d.id === lockedDanceId);
+        danceRequestId.current += 1;
+        return {
+          animation: 'DANCE',
+          animationName:
+            locked?.animationName ?? DEFAULT_DANCE_NAME,
+          animationUrls: EMPTY_ANIMATION_URLS,
+          mirror: false,
+          proceduralPreset:
+            locked?.proceduralPreset ?? DEFAULT_DANCE_PRESET,
+          requestId: danceRequestId.current,
+          source: 'user',
+        };
+      });
       return;
     }
 
-    // No lock: ensure a dance is always active.
-    if (
-      bodyOverride?.source === 'ambient' &&
-      bodyOverride.proceduralPreset
-    ) {
-      return;
-    }
-    const seed =
-      danceOptions[
-        autoIndexRef.current % Math.max(danceOptions.length, 1)
-      ] ?? null;
-    startDance(seed, 'ambient');
-  }, [
-    bodyOverride,
-    danceOptions,
-    lockedDanceId,
-    speaking,
-    startDance,
-  ]);
+    // AUTO: ensure a dance is active once, then interval rotates it.
+    setBodyOverride((current) => {
+      if (current?.source === 'ambient' && current.proceduralPreset) {
+        return current;
+      }
+      const seed =
+        danceOptions[
+          autoIndexRef.current % Math.max(danceOptions.length, 1)
+        ] ?? null;
+      danceRequestId.current += 1;
+      return {
+        animation: 'DANCE',
+        animationName: seed?.animationName ?? DEFAULT_DANCE_NAME,
+        animationUrls: EMPTY_ANIMATION_URLS,
+        mirror: false,
+        proceduralPreset:
+          seed?.proceduralPreset ?? DEFAULT_DANCE_PRESET,
+        requestId: danceRequestId.current,
+        source: 'ambient',
+      };
+    });
+  }, [danceOptions, lockedDanceId, speaking]);
 
   // AUTO mode: rotate featured dances forever.
   useEffect(() => {
-    if (speaking || lockedDanceId != null || danceOptions.length === 0) {
+    if (speaking || lockedDanceId != null) {
       return;
     }
     const timer = window.setInterval(() => {
+      if (danceOptions.length === 0) {
+        startDance(null, 'ambient');
+        return;
+      }
       autoIndexRef.current =
         (autoIndexRef.current + 1) % danceOptions.length;
       const next = danceOptions[autoIndexRef.current];

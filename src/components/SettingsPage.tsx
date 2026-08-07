@@ -592,7 +592,10 @@ export function SettingsPage() {
   };
 
   const deployModel = async (modelId: string) => {
-    if (!bridge) return;
+    if (!bridge) {
+      setNotice('Persona bridge unavailable — restart the app and try Deploy again.');
+      return;
+    }
     const snapshot = await run(
       () => bridge.deployModel(modelId),
       'Character deployed and opened on your desktop.',
@@ -605,7 +608,10 @@ export function SettingsPage() {
   };
 
   const deploySelection = async () => {
-    if (!bridge) return;
+    if (!bridge) {
+      setNotice('Persona bridge unavailable — restart the app and try Deploy again.');
+      return;
+    }
     if (deploymentMode === 'crew') {
       const modelIds =
         crewModelIds.length > 0
@@ -613,7 +619,10 @@ export function SettingsPage() {
           : selectedModel
             ? [selectedModel.id]
             : [];
-      if (modelIds.length === 0) return;
+      if (modelIds.length === 0) {
+        setNotice('Select at least one character for the crew.');
+        return;
+      }
       const snapshot = await run(
         () => bridge.deployModels(modelIds),
         modelIds.length > 1
@@ -627,7 +636,10 @@ export function SettingsPage() {
       setCrewModelIds(snapshot.deployed_model_ids);
       return;
     }
-    if (!selectedModel) return;
+    if (!selectedModel) {
+      setNotice('Select a character on the wheel, then Deploy.');
+      return;
+    }
     await deployModel(selectedModel.id);
   };
 

@@ -107,12 +107,8 @@ const OVERLAY_ALWAYS_ON_TOP_LEVELS = [
 
 function pinOverlayAboveWindows(window, { raise = false } = {}) {
   if (!window || window.isDestroyed()) return;
-  // Toggle forces Windows to re-apply topmost after other apps steal z-order.
-  try {
-    window.setAlwaysOnTop(false);
-  } catch {
-    // ignore
-  }
+  // Do NOT setAlwaysOnTop(false) first — that drop lets other windows cover
+  // Persona and can make Deploy look like a no-op.
   let pinned = false;
   for (const level of OVERLAY_ALWAYS_ON_TOP_LEVELS) {
     try {
@@ -131,7 +127,7 @@ function pinOverlayAboveWindows(window, { raise = false } = {}) {
   } catch {
     window.setVisibleOnAllWorkspaces(true);
   }
-  // Raise above other apps, but not while Settings is focused (Deploy clicks).
+  // Raise above other apps, but never while Settings is focused (Deploy).
   if (raise && typeof window.moveTop === "function") {
     window.moveTop();
   }
@@ -148,6 +144,7 @@ function settingsWindowIsFocused() {
 function enableOverlayClickThrough(window) {
   if (!window || window.isDestroyed()) return;
   // Forward mousemove so the renderer can re-enable hits on chrome controls.
+  // Default click-through so Settings/Deploy stay usable under the avatar.
   window.setIgnoreMouseEvents(true, { forward: true });
 }
 
@@ -161,11 +158,15 @@ function startAlwaysOnTopAssert() {
     ) {
       return;
     }
-    // Stay in front of other apps; avoid raise while Settings is active.
+    const settingsFocused = settingsWindowIsFocused();
     pinOverlayAboveWindows(avatarWindow, {
-      raise: !settingsWindowIsFocused(),
+      raise: !settingsFocused,
     });
-  }, 750);
+    // Re-assert click-through so a stuck hit-test never blocks Deploy.
+    if (settingsFocused) {
+      enableOverlayClickThrough(avatarWindow);
+    }
+  }, 1000);
   alwaysOnTopAssertTimer.unref?.();
 }
 
@@ -321,10 +322,22 @@ function scheduleHyprlandWindowConfiguration({
   hyprlandConfigurationTimer.unref?.();
 }
 
-function showOverlay({ focus = false } = {}) {
+function showOverlay({ focus = false, recreate = false } = {}) {
+  // Re-sync from disk state in case modelConfigured drifted.
+  if (settingsStore) {
+    modelConfigured = snapshotHasConfiguredModel(settingsStore.getSnapshot());
+  }
   if (!hasConfiguredModel()) {
     showSettings();
     return;
+  }
+  if (recreate && avatarWindow && !avatarWindow.isDestroyed()) {
+    try {
+      avatarWindow.destroy();
+    } catch {
+      // ignore
+    }
+    avatarWindow = null;
   }
   const window = createWindow();
   if (window.isMinimized()) window.restore();
@@ -332,12 +345,28 @@ function showOverlay({ focus = false } = {}) {
   positionWindow(window);
   pinOverlayAboveWindows(window, { raise: true });
   enableOverlayClickThrough(window);
-  window.show();
+  if (!window.isVisible()) {
+    window.show();
+  } else {
+    window.show();
+  }
+  window.setOpacity(1);
   if (focus) {
     window.focus();
   }
   startAlwaysOnTopAssert();
   pushSettingsToWindow(window);
+  // Hard refresh settings into a live renderer so the model appears immediately.
+  if (!window.webContents.isLoading()) {
+    try {
+      window.webContents.send(
+        "persona:settings-updated",
+        settingsStore.getSnapshot(),
+      );
+    } catch {
+      // ignore
+    }
+  }
   scheduleHyprlandWindowConfiguration({
     force: true,
     position: hyprlandLastPosition,
@@ -955,15 +984,29 @@ if (!app.requestSingleInstanceLock()) {
       publishSettings(settingsStore.setDefaultModel(modelId)),
     );
     ipcMain.handle("persona:settings-deploy-model", (_event, modelId) => {
-      const snapshot = publishSettings(settingsStore.deployModels([modelId]));
-      // Always force the desktop avatar open after Deploy, even if already active.
-      showOverlay({ focus: true });
-      return snapshot;
+      try {
+        const snapshot = publishSettings(
+          settingsStore.deployModels([modelId]),
+        );
+        // Recreate the overlay so deploy always opens a fresh dancing avatar.
+        showOverlay({ focus: true, recreate: true });
+        return snapshot;
+      } catch (error) {
+        console.error("[persona] deploy-model failed", error);
+        throw error;
+      }
     });
     ipcMain.handle("persona:settings-deploy-models", (_event, modelIds) => {
-      const snapshot = publishSettings(settingsStore.deployModels(modelIds));
-      showOverlay({ focus: true });
-      return snapshot;
+      try {
+        const snapshot = publishSettings(
+          settingsStore.deployModels(modelIds),
+        );
+        showOverlay({ focus: true, recreate: true });
+        return snapshot;
+      } catch (error) {
+        console.error("[persona] deploy-models failed", error);
+        throw error;
+      }
     });
     ipcMain.on("persona:set-mouse-passthrough", (event, passthrough) => {
       if (!avatarWindow || avatarWindow.isDestroyed()) return;

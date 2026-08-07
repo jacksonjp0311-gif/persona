@@ -26,9 +26,16 @@ export function OverlayPointerPassthrough() {
 
     const onLeave = () => setPassthrough(true);
 
+    // Periodically force click-through so Deploy is never blocked if mouse
+    // events stop while ignoreMouseEvents is false.
+    const watchdog = window.setInterval(() => {
+      if (passthrough) bridge.setMousePassthrough(true);
+    }, 2000);
+
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseleave", onLeave);
     return () => {
+      window.clearInterval(watchdog);
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseleave", onLeave);
       bridge.setMousePassthrough(true);
