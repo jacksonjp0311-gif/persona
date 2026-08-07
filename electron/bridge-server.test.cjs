@@ -174,6 +174,81 @@ test("bridge delegates configured animation names to the active library", async 
   ]);
 });
 
+test("Codex turns require a native authenticated request and retain only assistant text", async (context) => {
+  const turns = [];
+  const token = "ab".repeat(32);
+  const bridge = createBridgeServer({
+    port: 0,
+    onEvent: () => {},
+    codexTurnToken: token,
+    onCodexTurn: (turn) => turns.push(turn),
+  });
+  const address = await bridge.listen();
+  context.after(() => bridge.close());
+  const body = JSON.stringify({ text: "Persona can say this." });
+
+  const accepted = await requestServer(address, {
+    path: "/codex-turn",
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${token}`,
+      "content-type": "application/json",
+    },
+    body,
+  });
+  const missingToken = await requestServer(address, {
+    path: "/codex-turn",
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body,
+  });
+  const browserOrigin = await requestServer(address, {
+    path: "/codex-turn",
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${token}`,
+      "content-type": "application/json",
+      origin: "http://127.0.0.1:5173",
+    },
+    body,
+  });
+  const extraContent = await requestServer(address, {
+    path: "/codex-turn",
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${token}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({ text: "Hello", transcript_path: "do-not-send" }),
+  });
+
+  assert.equal(accepted.status, 202);
+  assert.equal(missingToken.status, 401);
+  assert.equal(browserOrigin.status, 403);
+  assert.equal(extraContent.status, 422);
+  assert.deepEqual(turns, [
+    { type: "codex-turn", text: "Persona can say this." },
+  ]);
+});
+
+test("Codex-turn endpoint stays unavailable until its opt-in controller is configured", async (context) => {
+  const bridge = createBridgeServer({ port: 0, onEvent: () => {} });
+  const address = await bridge.listen();
+  context.after(() => bridge.close());
+
+  const response = await requestServer(address, {
+    path: "/codex-turn",
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${"ab".repeat(32)}`,
+      "content-type": "application/json",
+    },
+    body: '{"text":"Hello"}',
+  });
+
+  assert.equal(response.status, 404);
+});
+
 test("bridge routes only valid local JSON requests to MCP", async (context) => {
   const bodies = [];
   const bridge = createBridgeServer({

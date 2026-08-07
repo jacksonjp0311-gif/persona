@@ -24,6 +24,18 @@ export function animationUrlsForType(
     .flatMap((animation) => animation.asset_urls);
 }
 
+export function proceduralPresetForType(
+  animations: readonly PersonaAnimationSettings[],
+  type: PlayableAnimationType,
+): string | null {
+  return (
+    animations.find(
+      (animation) =>
+        animation.animation_type === type && animation.procedural_preset,
+    )?.procedural_preset ?? null
+  );
+}
+
 export function randomAnimationUrl(
   choices: readonly string[],
   previous: string | null = null,

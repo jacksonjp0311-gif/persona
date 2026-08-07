@@ -5,6 +5,13 @@ const { contextBridge, ipcRenderer } = require("electron");
 contextBridge.exposeInMainWorld("personaBridge", {
   getSnapshot: () => ipcRenderer.invoke("persona:get-snapshot"),
   hide: () => ipcRenderer.send("persona:hide"),
+  setMousePassthrough: (passthrough) =>
+    ipcRenderer.send("persona:set-mouse-passthrough", Boolean(passthrough)),
+  startWindowDrag: (point) =>
+    ipcRenderer.send("persona:window-drag-start", point),
+  moveWindowDrag: (point) =>
+    ipcRenderer.send("persona:window-drag-move", point),
+  endWindowDrag: () => ipcRenderer.send("persona:window-drag-end"),
   subscribe: (listener) => {
     const handler = (_event, payload) => listener(payload);
     ipcRenderer.on("persona:event", handler);
@@ -40,10 +47,16 @@ contextBridge.exposeInMainWorld("personaSettings", {
     ipcRenderer.invoke("persona:settings-delete-model", modelId),
   setDefaultModel: (modelId) =>
     ipcRenderer.invoke("persona:settings-set-default-model", modelId),
+  deployModel: (modelId) =>
+    ipcRenderer.invoke("persona:settings-deploy-model", modelId),
+  deployModels: (modelIds) =>
+    ipcRenderer.invoke("persona:settings-deploy-models", modelIds),
   setCharacterSize: (size) =>
     ipcRenderer.invoke("persona:settings-set-character-size", size),
   getMcpStatus: () =>
     ipcRenderer.invoke("persona:settings-get-mcp-status"),
+  connectCodexCli: () =>
+    ipcRenderer.invoke("persona:settings-connect-codex-cli"),
   setWindowTheme: (theme) =>
     ipcRenderer.send("persona:settings-set-window-theme", theme),
   subscribe: (listener) => {

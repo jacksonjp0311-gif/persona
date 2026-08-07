@@ -12,6 +12,7 @@ interface PackagedLibraryDocument {
     animation_description: string;
     animation_trigger_scenario: string;
     animation_type: PersonaAnimationType | null;
+    procedural_preset?: string | null;
     asset_paths: string[];
   }>;
 }
@@ -31,6 +32,7 @@ const SYSTEM_ACTIONS: PersonaAnimationSettings[] = [
     removable: false,
     clips: [],
     asset_urls: [],
+    procedural_preset: 'breathing-idle',
   },
   {
     id: 'system-speaking',
@@ -47,12 +49,15 @@ const SYSTEM_ACTIONS: PersonaAnimationSettings[] = [
     removable: false,
     clips: [],
     asset_urls: [],
+    procedural_preset: 'conversational-talk',
   },
 ];
 
 export const SETTINGS_FALLBACK: PersonaSettingsSnapshot = {
-  schema_version: 3,
+  schema_version: 4,
   default_model_id: null,
+  deployed_model_ids: [],
+  deployment_mode: 'solo',
   character_size: 1,
   packaged_animation_change_count: 0,
   models: [],
@@ -78,6 +83,7 @@ export async function loadPackagedSettingsFallback(): Promise<PersonaSettingsSna
     animation_description: animation.animation_description,
     animation_trigger_scenario: animation.animation_trigger_scenario,
     animation_type: animation.animation_type,
+    procedural_preset: animation.procedural_preset ?? null,
     origin: 'packaged' as const,
     system:
       animation.id === 'system-idle' ||
@@ -104,6 +110,8 @@ export async function loadPackagedSettingsFallback(): Promise<PersonaSettingsSna
   return {
     ...SETTINGS_FALLBACK,
     default_model_id: defaultModelId,
+    deployed_model_ids: defaultModelId == null ? [] : [defaultModelId],
+    deployment_mode: 'solo',
     models: library.models.map((model) => ({
       id: model.id,
       model_name: model.model_name,

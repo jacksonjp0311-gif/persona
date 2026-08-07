@@ -56,6 +56,10 @@ test("preload exposes only narrow Persona and settings IPC operations", async ()
   assert.deepEqual([...exposed.keys()], ["personaBridge", "personaSettings"]);
   await bridge.getSnapshot();
   bridge.hide();
+  bridge.setMousePassthrough(true);
+  bridge.startWindowDrag({ x: 10, y: 20 });
+  bridge.moveWindowDrag({ x: 30, y: 40 });
+  bridge.endWindowDrag();
   await settings.get();
   await settings.importModel({ model_name: "Studio Assistant" });
   await settings.createAnimation({
@@ -74,8 +78,11 @@ test("preload exposes only narrow Persona and settings IPC operations", async ()
   await settings.resetPackagedAnimations();
   await settings.deleteModel("model-id");
   await settings.setDefaultModel("model-id");
+  await settings.deployModel("model-id");
+  await settings.deployModels(["leader-id", "second-id"]);
   await settings.setCharacterSize(1.2);
   await settings.getMcpStatus();
+  await settings.connectCodexCli();
   settings.setWindowTheme("light");
 
   assert.deepEqual(invocations, [
@@ -109,11 +116,21 @@ test("preload exposes only narrow Persona and settings IPC operations", async ()
     ["persona:settings-reset-packaged-animations"],
     ["persona:settings-delete-model", "model-id"],
     ["persona:settings-set-default-model", "model-id"],
+    ["persona:settings-deploy-model", "model-id"],
+    [
+      "persona:settings-deploy-models",
+      ["leader-id", "second-id"],
+    ],
     ["persona:settings-set-character-size", 1.2],
     ["persona:settings-get-mcp-status"],
+    ["persona:settings-connect-codex-cli"],
   ]);
   assert.deepEqual(sent, [
     ["persona:hide"],
+    ["persona:set-mouse-passthrough", true],
+    ["persona:window-drag-start", { x: 10, y: 20 }],
+    ["persona:window-drag-move", { x: 30, y: 40 }],
+    ["persona:window-drag-end"],
     ["persona:settings-set-window-theme", "light"],
   ]);
 

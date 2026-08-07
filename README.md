@@ -73,6 +73,24 @@ For a background launch:
 npm start -- --background
 ```
 
+### Install the Persona desktop icon
+
+The repository keeps its launcher artwork in `icons/` and includes installers
+for Windows and Linux desktop environments. Install dependencies first, then
+run the script for your platform:
+
+```powershell
+.\install-icon.ps1 -Open
+```
+
+```bash
+./install-icon.sh --open
+```
+
+Both launchers open Persona directly to the character wheel. Select any model
+to preview it, then use **Deploy character** in the preview pane to make it the
+active desktop character.
+
 ## Customize Persona
 
 Open **Settings…** from Persona's tray menu to manage the character library.

@@ -62,6 +62,47 @@ the merged snapshot has a valid `default_model_id`. Importing the first user
 model selects it automatically. Empty Idle or Speaking actions use an empty
 animation URL list, which leaves the VRM in its normal pose.
 
+## Motion cleanup
+
+Convert a humanoid BVH capture to VRMA with the built-in cleanup pipeline:
+
+```bash
+npm run motion:convert -- input.bvh output.vrma --profile natural \
+  --start 4 --end 9 --speed 1.15
+```
+
+Extract and retime an authored clip from a humanoid GLB animation library:
+
+```bash
+npm run motion:convert:glb -- library.glb Dance_Loop dance.vrma --speed 1.15
+```
+
+Use `--start` and `--end` to remove authored bind-pose lead-ins. Add
+`--no-root-motion` for planted actions such as a throw when the source clip's
+hips translation would make a desktop avatar float.
+
+The converter can trim bind-pose lead-ins and tails before retiming. It maps
+recognized humanoid bones, normalizes root travel, resamples raw capture data to
+60 fps, keeps quaternion signs continuous, and applies zero-phase per-bone
+smoothing. It prints the 95th-percentile angular jerk before and after cleanup
+so a conversion can be rejected when it remains visibly noisy.
+
+Three profiles are available:
+
+- `responsive` preserves fast accents and hand movement;
+- `natural` is the default balance for dance and conversation; and
+- `tight` applies stronger cleanup to noisy or twitchy capture.
+
+Use captured VRMA files for production actions. Procedural presets are fallback
+motions and are not a replacement for contact-aware mocap cleanup. Foot-skating
+still requires a contact detector plus an IK solve; do not disguise it by
+removing all root motion.
+
+`npm run motion:check` parses every packaged VRMA, verifies the required
+humanoid tracks and useful motion range, rejects any frame where both upper
+arms collapse back toward the source T-pose, and rejects vertical or horizontal
+root travel that can make a desktop avatar float or escape its window.
+
 ## MCP contract
 
 `electron/mcp-server.cjs` owns the Codex-facing tool schemas and translates

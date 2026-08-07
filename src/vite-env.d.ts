@@ -50,6 +50,7 @@ interface PersonaAnimationSettings {
   removable: boolean;
   clips: PersonaAnimationClipSettings[];
   asset_urls: string[];
+  procedural_preset: string | null;
 }
 
 interface PersonaAnimationClipSettings {
@@ -63,6 +64,8 @@ interface PersonaAnimationClipSettings {
 interface PersonaSettingsSnapshot {
   schema_version: number;
   default_model_id: string | null;
+  deployed_model_ids: string[];
+  deployment_mode: 'solo' | 'crew';
   character_size: number;
   packaged_animation_change_count: number;
   models: PersonaModelSettings[];
@@ -97,7 +100,9 @@ type AvatarBridgeEvent =
       animation: PersonaAnimationType | 'CUSTOM';
       animationName?: string;
       animationUrls?: string[];
-      source?: 'command';
+      mirror?: boolean;
+      proceduralPreset?: string | null;
+      source?: 'ambient' | 'command' | 'user';
       requestId?: number;
     }
   | { type: 'listener-status'; status: AudioListenerStatus }
@@ -107,6 +112,10 @@ interface Window {
   personaBridge?: {
     getSnapshot(): Promise<AvatarBridgeEvent | null>;
     hide(): void;
+    setMousePassthrough(passthrough: boolean): void;
+    startWindowDrag(point: { x: number; y: number }): void;
+    moveWindowDrag(point: { x: number; y: number }): void;
+    endWindowDrag(): void;
     subscribe(listener: (event: AvatarBridgeEvent) => void): () => void;
   };
   personaSettings?: {
@@ -132,8 +141,15 @@ interface Window {
     resetPackagedAnimations(): Promise<PersonaSettingsSnapshot>;
     deleteModel(modelId: string): Promise<PersonaSettingsSnapshot>;
     setDefaultModel(modelId: string): Promise<PersonaSettingsSnapshot>;
+    deployModel(modelId: string): Promise<PersonaSettingsSnapshot>;
+    deployModels(modelIds: string[]): Promise<PersonaSettingsSnapshot>;
     setCharacterSize(size: number): Promise<PersonaSettingsSnapshot>;
     getMcpStatus(): Promise<PersonaMcpStatus>;
+    connectCodexCli(): Promise<{
+      config_path: string;
+      server_url: string;
+      status: 'connected';
+    }>;
     setWindowTheme(theme: 'light' | 'dark'): void;
     subscribe(
       listener: (snapshot: PersonaSettingsSnapshot) => void,

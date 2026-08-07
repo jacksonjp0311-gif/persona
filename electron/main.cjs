@@ -1,5 +1,6 @@
 "use strict";
 
+const fs = require("node:fs");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
 const {
@@ -22,6 +23,7 @@ const {
   createMcpSettingsStatus,
 } = require("./mcp-settings-status.cjs");
 const { createSettingsStore } = require("./settings-store.cjs");
+const { connectCodexCli } = require("./codex-config.cjs");
 const {
   configureHyprlandWindow,
   getHyprlandWindowPlacement,
@@ -31,8 +33,18 @@ const { isAllowedRendererNavigation } = require("./navigation-policy.cjs");
 const { snapshotHasConfiguredModel } = require("./model-readiness.cjs");
 const { parseProtocolUrl, voiceState } = require("./protocol-actions.cjs");
 const {
+  calculateDraggedWindowPosition,
+  finitePoint,
+} = require("./window-drag.cjs");
+const {
   createSettingsWindowPresentationGate,
 } = require("./settings-window-presentation.cjs");
+const {
+  ambientDanceCandidates,
+  ambientDanceDelay,
+  canPlayAmbientDance,
+  chooseAmbientDance,
+} = require("./ambient-dance.cjs");
 
 const WINDOW_WIDTH = 430;
 const WINDOW_HEIGHT = 680;
@@ -76,7 +88,117 @@ let mcpServerPort = Number(
   process.env.PERSONA_BRIDGE_PORT || DEFAULT_PORT,
 );
 let mcpAnimationCatalogSignature = null;
+let overlayDragState = null;
+let ambientDanceTimer = null;
+let ambientDancePlayed = false;
+let previousAmbientDanceId = null;
+let alwaysOnTopAssertTimer = null;
 const pendingRendererEvents = new Map();
+
+/**
+ * Prefer the highest always-on-top tier available. Windows drops weaker levels
+ * under maximized apps; toggling off→on re-commits HWND_TOPMOST.
+ */
+const OVERLAY_ALWAYS_ON_TOP_LEVELS = [
+  "screen-saver",
+  "pop-up-menu",
+  "floating",
+  "normal",
+];
+
+function pinOverlayAboveWindows(window, { raise = false } = {}) {
+  if (!window || window.isDestroyed()) return;
+  // Do NOT setAlwaysOnTop(false) first — that drop lets other windows cover
+  // Persona and can make Deploy look like a no-op.
+  let pinned = false;
+  for (const level of OVERLAY_ALWAYS_ON_TOP_LEVELS) {
+    try {
+      window.setAlwaysOnTop(true, level);
+      pinned = true;
+      break;
+    } catch {
+      // try next level
+    }
+  }
+  if (!pinned) {
+    window.setAlwaysOnTop(true);
+  }
+  try {
+    window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  } catch {
+    window.setVisibleOnAllWorkspaces(true);
+  }
+  // Raise above other apps, but never while Settings is focused (Deploy).
+  if (raise && typeof window.moveTop === "function") {
+    window.moveTop();
+  }
+}
+
+function settingsWindowIsFocused() {
+  return Boolean(
+    settingsWindow &&
+      !settingsWindow.isDestroyed() &&
+      settingsWindow.isFocused(),
+  );
+}
+
+function setOverlayMouseMode(window, { clickThrough }) {
+  if (!window || window.isDestroyed()) return;
+  if (clickThrough) {
+    // Only while Settings is focused — permanent click-through on Windows
+    // transparent windows can stop compositing (avatar looks invisible).
+    window.setIgnoreMouseEvents(true, { forward: true });
+  } else {
+    window.setIgnoreMouseEvents(false);
+  }
+}
+
+function disableOverlayClickThrough(window) {
+  setOverlayMouseMode(window, { clickThrough: false });
+}
+
+function startAlwaysOnTopAssert() {
+  clearInterval(alwaysOnTopAssertTimer);
+  alwaysOnTopAssertTimer = setInterval(() => {
+    if (
+      !avatarWindow ||
+      avatarWindow.isDestroyed() ||
+      !avatarWindow.isVisible()
+    ) {
+      return;
+    }
+    const settingsFocused = settingsWindowIsFocused();
+    pinOverlayAboveWindows(avatarWindow, {
+      raise: !settingsFocused,
+    });
+    // Click-through ONLY over Settings so Deploy works; otherwise normal hits
+    // so the avatar stays visible and interactive.
+    setOverlayMouseMode(avatarWindow, { clickThrough: settingsFocused });
+  }, 1000);
+  alwaysOnTopAssertTimer.unref?.();
+}
+
+function pushSettingsToWindow(window) {
+  if (!window || window.isDestroyed() || !settingsStore) return;
+  const snapshot = settingsStore.getSnapshot();
+  if (window.webContents.isLoading()) {
+    window.webContents.once("did-finish-load", () => {
+      if (!window.isDestroyed() && settingsStore) {
+        window.webContents.send(
+          "persona:settings-updated",
+          settingsStore.getSnapshot(),
+        );
+      }
+    });
+    return;
+  }
+  window.webContents.send("persona:settings-updated", snapshot);
+}
+
+function stopAlwaysOnTopAssert() {
+  clearInterval(alwaysOnTopAssertTimer);
+  alwaysOnTopAssertTimer = null;
+}
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -108,6 +230,52 @@ function positionWindow(window) {
 
 function hasConfiguredModel() {
   return modelConfigured;
+}
+
+function clearAmbientDanceTimer() {
+  clearTimeout(ambientDanceTimer);
+  ambientDanceTimer = null;
+}
+
+function scheduleAmbientDance() {
+  if (
+    ambientDanceTimer ||
+    isQuitting ||
+    !hasConfiguredModel() ||
+    !avatarWindow ||
+    avatarWindow.isDestroyed() ||
+    !avatarWindow.isVisible() ||
+    !canPlayAmbientDance(latestVoiceState)
+  ) {
+    return;
+  }
+  const dances = ambientDanceCandidates(
+    settingsStore?.getSnapshot().animations ?? [],
+  );
+  if (dances.length === 0) return;
+  ambientDanceTimer = setTimeout(() => {
+    ambientDanceTimer = null;
+    if (
+      isQuitting ||
+      !avatarWindow ||
+      avatarWindow.isDestroyed() ||
+      !avatarWindow.isVisible() ||
+      !canPlayAmbientDance(latestVoiceState)
+    ) {
+      return;
+    }
+    const dance = chooseAmbientDance(dances, previousAmbientDanceId);
+    if (!dance) return;
+    previousAmbientDanceId = dance.id;
+    ambientDancePlayed = true;
+    // Never mirror ambient dances — mirror reads as a full about-face.
+    playConfiguredAnimation(dance.animation_name, {
+      mirror: false,
+      source: "ambient",
+    });
+    scheduleAmbientDance();
+  }, ambientDanceDelay(!ambientDancePlayed));
+  ambientDanceTimer.unref?.();
 }
 
 function scheduleHyprlandWindowConfiguration({
@@ -162,24 +330,60 @@ function scheduleHyprlandWindowConfiguration({
   hyprlandConfigurationTimer.unref?.();
 }
 
-function showOverlay({ focus = false } = {}) {
+function showOverlay({ focus = false, recreate = false } = {}) {
+  // Re-sync from disk state in case modelConfigured drifted.
+  if (settingsStore) {
+    modelConfigured = snapshotHasConfiguredModel(settingsStore.getSnapshot());
+  }
   if (!hasConfiguredModel()) {
     showSettings();
     return;
   }
+  if (recreate && avatarWindow && !avatarWindow.isDestroyed()) {
+    try {
+      avatarWindow.destroy();
+    } catch {
+      // ignore
+    }
+    avatarWindow = null;
+  }
   const window = createWindow();
   if (window.isMinimized()) window.restore();
+  // Always force-show on deploy — do not no-op when already "visible" but buried.
+  positionWindow(window);
+  pinOverlayAboveWindows(window, { raise: true });
+  // Keep mouse capture so WebGL composites; only punch-through when Settings focused.
+  setOverlayMouseMode(window, { clickThrough: settingsWindowIsFocused() });
+  window.show();
+  window.setOpacity(1);
   if (focus) {
-    if (!window.isVisible()) window.show();
     window.focus();
-  } else if (!window.isVisible()) {
-    window.showInactive();
   }
-  scheduleHyprlandWindowConfiguration();
+  startAlwaysOnTopAssert();
+  pushSettingsToWindow(window);
+  // Hard refresh settings into a live renderer so the model appears immediately.
+  if (!window.webContents.isLoading()) {
+    try {
+      window.webContents.send(
+        "persona:settings-updated",
+        settingsStore.getSnapshot(),
+      );
+    } catch {
+      // ignore
+    }
+  }
+  scheduleHyprlandWindowConfiguration({
+    force: true,
+    position: hyprlandLastPosition,
+    reposition: !hyprlandConfigured || hyprlandLastPosition != null,
+  });
+  scheduleAmbientDance();
 }
 
 async function hideOverlay() {
   debugLog("hide overlay");
+  clearAmbientDanceTimer();
+  stopAlwaysOnTopAssert();
   const targetWindow = avatarWindow;
   if (!targetWindow || targetWindow.isDestroyed()) return;
   const placement = await getHyprlandWindowPlacement(process.pid);
@@ -191,6 +395,8 @@ async function hideOverlay() {
 }
 
 function destroyOverlayForSetup() {
+  clearAmbientDanceTimer();
+  stopAlwaysOnTopAssert();
   clearTimeout(hyprlandConfigurationTimer);
   hyprlandConfigurationGeneration += 1;
   hyprlandConfigurationTimer = null;
@@ -223,6 +429,21 @@ function rendererUrl(view = null) {
   return url.href;
 }
 
+function applicationIconPath() {
+  // Prefer the Windows .ico for taskbar/tray/shortcuts; PNG remains for UI assets.
+  const ico = path.join(__dirname, "..", "icons", "persona.ico");
+  if (process.platform === "win32" && fs.existsSync(ico)) {
+    return ico;
+  }
+  return path.join(
+    __dirname,
+    "..",
+    app.isPackaged ? "dist" : "public",
+    "assets",
+    "persona-icon.png",
+  );
+}
+
 function secureRendererWindow(window, allowedRendererUrl) {
   window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
   window.webContents.on("will-navigate", (event, targetUrl) => {
@@ -240,6 +461,7 @@ function createWindow() {
     height: WINDOW_HEIGHT,
     minWidth: 320,
     minHeight: 480,
+    movable: true,
     show: false,
     frame: false,
     transparent: true,
@@ -249,7 +471,9 @@ function createWindow() {
     autoHideMenuBar: true,
     alwaysOnTop: true,
     skipTaskbar: true,
+    focusable: true,
     title: "Persona",
+    icon: applicationIconPath(),
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
       contextIsolation: true,
@@ -259,24 +483,40 @@ function createWindow() {
   });
   avatarWindow = window;
 
-  window.setAlwaysOnTop(true, "floating");
-  window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  pinOverlayAboveWindows(window, { raise: true });
+  // Keep mouse events enabled so the transparent layer still composites.
+  disableOverlayClickThrough(window);
   window.setOpacity(1);
+  startAlwaysOnTopAssert();
   window.once("ready-to-show", () => {
     if (window.isDestroyed()) return;
     positionWindow(window);
+    pinOverlayAboveWindows(window, { raise: true });
+    disableOverlayClickThrough(window);
     scheduleHyprlandWindowConfiguration();
   });
   window.on("show", () => {
     if (window.isDestroyed()) return;
-    window.setAlwaysOnTop(true, "floating");
-    window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+    pinOverlayAboveWindows(window, { raise: true });
+    setOverlayMouseMode(window, {
+      clickThrough: settingsWindowIsFocused(),
+    });
+    startAlwaysOnTopAssert();
     window.setOpacity(1);
     scheduleHyprlandWindowConfiguration({
       force: true,
       position: hyprlandLastPosition,
       reposition: !hyprlandConfigured || hyprlandLastPosition != null,
     });
+  });
+  window.on("blur", () => {
+    // Re-pin after another app steals focus so Persona stays painted on top.
+    if (window.isDestroyed() || !window.isVisible()) return;
+    pinOverlayAboveWindows(window, { raise: false });
+  });
+  window.on("focus", () => {
+    if (window.isDestroyed()) return;
+    pinOverlayAboveWindows(window, { raise: false });
   });
   window.on("close", (event) => {
     if (isQuitting) return;
@@ -290,6 +530,8 @@ function createWindow() {
     hyprlandConfigured = false;
     hyprlandConfiguring = false;
     rendererLoadHookAttached = false;
+    clearAmbientDanceTimer();
+    stopAlwaysOnTopAssert();
     avatarWindow = null;
   });
 
@@ -313,6 +555,7 @@ function createSettingsWindow() {
     minHeight: 640,
     show: false,
     title: "Persona Settings",
+    icon: applicationIconPath(),
     // Best guess until the renderer reports the theme it actually resolved,
     // which it does before the window is shown on ready-to-show.
     backgroundColor: settingsWindowBackground(
@@ -375,6 +618,7 @@ function animationCatalogSignature(snapshot) {
       id: animation.id,
       name: animation.animation_name,
       playableClipCount: animation.asset_urls.length,
+      proceduralPreset: animation.procedural_preset,
       trigger: animation.animation_trigger_scenario,
     })),
   );
@@ -389,11 +633,24 @@ function publishSettings(snapshot) {
     mcpHandler?.notifyToolsChanged();
   }
   for (const window of [avatarWindow, settingsWindow]) {
-    if (window && !window.isDestroyed() && !window.webContents.isLoading()) {
+    if (!window || window.isDestroyed()) continue;
+    // Never drop settings while the avatar is still loading — that left deploys
+    // with an empty roster until a manual refresh.
+    if (window.webContents.isLoading()) {
+      window.webContents.once("did-finish-load", () => {
+        if (!window.isDestroyed() && settingsStore) {
+          window.webContents.send(
+            "persona:settings-updated",
+            settingsStore.getSnapshot(),
+          );
+        }
+      });
+    } else {
       window.webContents.send("persona:settings-updated", snapshot);
     }
   }
   refreshTrayMenu();
+  scheduleAmbientDance();
   if (!wasConfigured && modelConfigured) {
     void audioListener?.start();
     showOverlay();
@@ -408,22 +665,46 @@ function publishSettings(snapshot) {
   return snapshot;
 }
 
-function playConfiguredAnimation(animationName) {
+function playConfiguredAnimation(
+  animationName,
+  { mirror = false, source = "command" } = {},
+) {
   if (!hasConfiguredModel()) return false;
   const installedAnimation = settingsStore?.getAnimation(animationName);
   if (
     installedAnimation == null ||
-    installedAnimation.asset_urls.length === 0
+    (installedAnimation.asset_urls.length === 0 &&
+      installedAnimation.procedural_preset == null)
   ) {
     return false;
   }
+  if (source === "command") {
+    // One-shots temporarily own the body; return to continuous dance after.
+    clearAmbientDanceTimer();
+    ambientDancePlayed = false;
+    ambientDanceTimer = setTimeout(() => {
+      ambientDanceTimer = null;
+      scheduleAmbientDance();
+    }, 6_500);
+    ambientDanceTimer.unref?.();
+  }
   animationCommandRequestId += 1;
+  const isDance =
+    installedAnimation.animation_type === "DANCE" ||
+    source === "ambient";
+  // Procedural dances never ship VRMA urls — clips fight facing on many VRMs.
+  const animationUrls =
+    isDance && installedAnimation.procedural_preset
+      ? []
+      : installedAnimation.asset_urls;
   handleBridgeEvent({
     type: "animation",
     animation: installedAnimation.animation_type ?? "CUSTOM",
     animationName: installedAnimation.animation_name,
-    animationUrls: installedAnimation.asset_urls,
-    source: "command",
+    animationUrls,
+    mirror: isDance ? false : mirror,
+    proceduralPreset: installedAnimation.procedural_preset,
+    source,
     requestId: animationCommandRequestId,
   });
   return true;
@@ -488,6 +769,14 @@ function handleBridgeEvent(event) {
   const canShowAvatar = hasConfiguredModel();
   if (event.type === "state") {
     latestVoiceState = event.state;
+    if (canPlayAmbientDance(latestVoiceState)) {
+      // Resume promptly after speech; do not wait a full rotation window.
+      if (!ambientDanceTimer) ambientDancePlayed = false;
+      scheduleAmbientDance();
+    } else {
+      clearAmbientDanceTimer();
+      ambientDancePlayed = false;
+    }
     if (
       canShowAvatar &&
       (event.state.phase === "starting" || event.state.phase === "active")
@@ -596,14 +885,9 @@ function refreshTrayMenu() {
 }
 
 function createTray() {
-  const iconPath = path.join(
-    __dirname,
-    "..",
-    app.isPackaged ? "dist" : "public",
-    "assets",
-    "avatar.png",
-  );
-  const icon = nativeImage.createFromPath(iconPath).resize({ width: 20, height: 20 });
+  const icon = nativeImage
+    .createFromPath(applicationIconPath())
+    .resize({ width: 20, height: 20 });
   tray = new Tray(icon);
   tray.setToolTip("Persona");
   refreshTrayMenu();
@@ -712,6 +996,38 @@ if (!app.requestSingleInstanceLock()) {
     ipcMain.handle("persona:settings-set-default-model", (_event, modelId) =>
       publishSettings(settingsStore.setDefaultModel(modelId)),
     );
+    ipcMain.handle("persona:settings-deploy-model", (_event, modelId) => {
+      try {
+        const snapshot = publishSettings(
+          settingsStore.deployModels([modelId]),
+        );
+        // Recreate the overlay so deploy always opens a fresh dancing avatar.
+        showOverlay({ focus: true, recreate: true });
+        return snapshot;
+      } catch (error) {
+        console.error("[persona] deploy-model failed", error);
+        throw error;
+      }
+    });
+    ipcMain.handle("persona:settings-deploy-models", (_event, modelIds) => {
+      try {
+        const snapshot = publishSettings(
+          settingsStore.deployModels(modelIds),
+        );
+        showOverlay({ focus: true, recreate: true });
+        return snapshot;
+      } catch (error) {
+        console.error("[persona] deploy-models failed", error);
+        throw error;
+      }
+    });
+    ipcMain.on("persona:set-mouse-passthrough", (event, passthrough) => {
+      if (!avatarWindow || avatarWindow.isDestroyed()) return;
+      if (event.sender !== avatarWindow.webContents) return;
+      avatarWindow.setIgnoreMouseEvents(Boolean(passthrough), {
+        forward: true,
+      });
+    });
     ipcMain.handle("persona:settings-set-character-size", (_event, size) =>
       publishSettings(settingsStore.setCharacterSize(size)),
     );
@@ -723,7 +1039,58 @@ if (!app.requestSingleInstanceLock()) {
         settingsSnapshot: settingsStore.getSnapshot(),
       }),
     );
+    ipcMain.handle("persona:settings-connect-codex-cli", () => {
+      if (mcpServerHealth !== "online") {
+        throw new Error("Persona's local MCP server is not online yet.");
+      }
+      return connectCodexCli({
+        homeDirectory: app.getPath("home"),
+        serverUrl: `http://127.0.0.1:${mcpServerPort}/mcp`,
+      });
+    });
     ipcMain.on("persona:hide", () => void hideOverlay());
+    ipcMain.on("persona:window-drag-start", (event, point) => {
+      if (
+        !avatarWindow ||
+        avatarWindow.isDestroyed() ||
+        event.sender !== avatarWindow.webContents ||
+        !finitePoint(point)
+      ) {
+        return;
+      }
+      overlayDragState = {
+        cursor: { x: point.x, y: point.y },
+        window: avatarWindow.getPosition(),
+      };
+    });
+    ipcMain.on("persona:window-drag-move", (event, point) => {
+      if (
+        !overlayDragState ||
+        !avatarWindow ||
+        avatarWindow.isDestroyed() ||
+        event.sender !== avatarWindow.webContents ||
+        !finitePoint(point)
+      ) {
+        return;
+      }
+      const nextPosition = calculateDraggedWindowPosition(
+        overlayDragState.window,
+        overlayDragState.cursor,
+        point,
+      );
+      if (nextPosition) {
+        avatarWindow.setPosition(nextPosition[0], nextPosition[1], false);
+      }
+    });
+    ipcMain.on("persona:window-drag-end", (event) => {
+      if (
+        avatarWindow &&
+        !avatarWindow.isDestroyed() &&
+        event.sender === avatarWindow.webContents
+      ) {
+        overlayDragState = null;
+      }
+    });
     // The resolved theme lives in renderer storage, so the window chrome can
     // only be corrected once the settings renderer reports it. Accepts the two
     // known theme names and never a caller-supplied colour.
@@ -746,7 +1113,10 @@ if (!app.requestSingleInstanceLock()) {
       getAnimations: () =>
         settingsStore
           .getSnapshot()
-          .animations.filter((animation) => animation.asset_urls.length > 0),
+          .animations.filter(
+            (animation) =>
+              animation.asset_urls.length > 0,
+          ),
     });
     bridge = createBridgeServer({
       port: mcpServerPort,
@@ -816,6 +1186,7 @@ app.on("activate", () => showOverlay({ focus: true }));
 
 app.on("before-quit", () => {
   isQuitting = true;
+  clearAmbientDanceTimer();
   clearTimeout(hyprlandConfigurationTimer);
   audioListener?.stop();
   globalShortcut.unregisterAll();

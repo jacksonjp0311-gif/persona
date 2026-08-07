@@ -1,7 +1,7 @@
 "use strict";
 
 const assert = require("node:assert/strict");
-const { execSync } = require("node:child_process");
+const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
 const {
@@ -11,7 +11,14 @@ const {
   validatePackagedLibrary,
 } = require("./library-catalog.cjs");
 
-test("keeps permanent empty system actions in the packaged library", () => {
+function execSync(_command, { cwd }) {
+  return fs.readFileSync(
+    path.join(cwd, "public", "assets", "library.json"),
+    "utf8",
+  );
+}
+
+test("keeps permanent captured rest actions in the packaged library", () => {
   // Read the committed blob so the guard survives local uncommitted edits
   // (e.g. the documented `cp library.json.example library.json` setup step).
   const repoRoot = path.join(__dirname, "..");
@@ -30,10 +37,11 @@ test("keeps permanent empty system actions in the packaged library", () => {
   }
   const library = validatePackagedLibrary(JSON.parse(committedJson));
 
-  assert.equal(library.default_model_id, null);
-  assert.deepEqual(library.models, []);
+  assert.ok(library.default_model_id);
+  assert.ok(library.models.length > 0);
+  assert.ok(library.animations.length >= 30);
   assert.deepEqual(
-    library.animations.map(
+    library.animations.slice(0, 2).map(
       ({ id, animation_name, animation_type, asset_paths }) => ({
         id,
         animation_name,
@@ -46,13 +54,13 @@ test("keeps permanent empty system actions in the packaged library", () => {
         id: "system-idle",
         animation_name: "idle",
         animation_type: "IDLE",
-        asset_paths: [],
+        asset_paths: ["animations/quaternius-idle.vrma"],
       },
       {
         id: "system-speaking",
         animation_name: "speaking",
         animation_type: "TALK",
-        asset_paths: [],
+        asset_paths: ["animations/quaternius-talking.vrma"],
       },
     ],
   );

@@ -4,11 +4,13 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type ReactNode,
 } from 'react';
 import { Scene } from './Scene';
 import {
   animationUrlsForType,
+  proceduralPresetForType,
   type PlayableAnimationType,
 } from '../animation-catalog';
 import {
@@ -23,6 +25,12 @@ import {
   THEME_OPTIONS,
   type ThemePreference,
 } from '../theme';
+import { MAX_CREW_SIZE } from '../crew-roster';
+import {
+  randomCrew,
+  sameCrew,
+  toggleCrewMember,
+} from '../crew-selection';
 
 type SettingsSection = 'models' | 'animations' | 'appearance' | 'mcp';
 interface ConfirmationRequest {
@@ -116,7 +124,7 @@ function useThemePreference() {
 }
 
 const MCP_TOOL_DESCRIPTIONS: Record<string, string> = {
-  play_animation: 'Play any configured action with at least one animation clip.',
+  play_animation: 'Play any configured action with built-in motion or a clip.',
   list_animations: 'Read the latest playable actions and their usage details.',
   control_window: 'Show, hide, or toggle the Persona character window.',
   get_status: 'Read window, model, voice, and listener readiness.',
@@ -125,6 +133,51 @@ const MCP_TOOL_DESCRIPTIONS: Record<string, string> = {
 function errorMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
   return message.replace(/^Error invoking remote method '[^']+': Error: /, '');
+}
+
+function modelInitials(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (words.length > 1) {
+    return words
+      .slice(0, 2)
+      .map((word) => word[0])
+      .join('')
+      .toUpperCase();
+  }
+  return name.slice(0, 2).toUpperCase();
+}
+
+const WHEEL_PAGE_SIZE = 12;
+type ActionCategory =
+  | 'all'
+  | 'captured'
+  | 'football'
+  | 'dance'
+  | 'conversation'
+  | 'system'
+  | 'custom';
+
+const ACTION_CATEGORIES: Array<{
+  id: ActionCategory;
+  label: string;
+}> = [
+  { id: 'all', label: 'All' },
+  { id: 'captured', label: 'Captured' },
+  { id: 'dance', label: 'Dance' },
+  { id: 'football', label: 'Football' },
+  { id: 'conversation', label: 'Conversation' },
+  { id: 'system', label: 'System' },
+  { id: 'custom', label: 'Custom' },
+];
+
+function actionCategory(
+  animation: PersonaAnimationSettings,
+): Exclude<ActionCategory, 'all' | 'captured'> {
+  if (animation.system) return 'system';
+  if (animation.origin === 'user') return 'custom';
+  if (animation.id.startsWith('nfl-')) return 'football';
+  if (animation.id.startsWith('dance-')) return 'dance';
+  return 'conversation';
 }
 
 export function SettingsPage() {
@@ -137,10 +190,23 @@ export function SettingsPage() {
   const [selectedModelId, setSelectedModelId] = useState(
     SETTINGS_FALLBACK.default_model_id,
   );
+  const crewSelectionDirty = useRef(false);
+  const [deploymentMode, setDeploymentMode] = useState<'solo' | 'crew'>(
+    SETTINGS_FALLBACK.deployment_mode,
+  );
+  const [crewModelIds, setCrewModelIds] = useState<string[]>(
+    SETTINGS_FALLBACK.deployed_model_ids,
+  );
+  const [wheelPage, setWheelPage] = useState(0);
   const [previewAnimation, setPreviewAnimation] =
     useState<PersonaAnimationSettings | null>(null);
   const [previewClipId, setPreviewClipId] = useState<string | null>(null);
   const [previewRequest, setPreviewRequest] = useState(0);
+  const [previewMouthTest, setPreviewMouthTest] = useState(false);
+  const [actionFilter, setActionFilter] =
+    useState<ActionCategory>('captured');
+  const [cycleActions, setCycleActions] = useState(false);
+  const [cycleIndex, setCycleIndex] = useState(0);
   const [modelName, setModelName] = useState('');
   const [animationMetadata, setAnimationMetadata] =
     useState<CustomAnimationMetadata>({
@@ -161,6 +227,7 @@ export function SettingsPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [mcpStatus, setMcpStatus] = useState<PersonaMcpStatus | null>(null);
   const [mcpLoading, setMcpLoading] = useState(false);
+  const [cliConnected, setCliConnected] = useState(false);
   const [confirmation, setConfirmation] =
     useState<ConfirmationRequest | null>(null);
   const [confirming, setConfirming] = useState(false);
@@ -170,6 +237,21 @@ export function SettingsPage() {
   const settingsContentRef = useRef<HTMLElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
 
+  const syncDeploymentSelection = useCallback(
+    (snapshot: PersonaSettingsSnapshot) => {
+      if (crewSelectionDirty.current) return;
+      setDeploymentMode(snapshot.deployment_mode);
+      setCrewModelIds(
+        snapshot.deployed_model_ids.length > 0
+          ? snapshot.deployed_model_ids
+          : snapshot.default_model_id
+            ? [snapshot.default_model_id]
+            : [],
+      );
+    },
+    [],
+  );
+
   useEffect(() => {
     document.title = 'Persona Settings';
     if (!bridge) {
@@ -177,6 +259,7 @@ export function SettingsPage() {
         .then((snapshot) => {
           setSettings(snapshot);
           setSelectedModelId(snapshot.default_model_id);
+          syncDeploymentSelection(snapshot);
         })
         .catch((error: unknown) => setNotice(errorMessage(error)));
       return;
@@ -186,10 +269,14 @@ export function SettingsPage() {
       .then((snapshot) => {
         setSettings(snapshot);
         setSelectedModelId(snapshot.default_model_id);
+        syncDeploymentSelection(snapshot);
       })
       .catch((error: unknown) => setNotice(errorMessage(error)));
-    return bridge.subscribe(setSettings);
-  }, [bridge]);
+    return bridge.subscribe((snapshot) => {
+      setSettings(snapshot);
+      syncDeploymentSelection(snapshot);
+    });
+  }, [bridge, syncDeploymentSelection]);
 
   useEffect(() => {
     setPreviewAnimation((current) => {
@@ -219,6 +306,56 @@ export function SettingsPage() {
     settings.models.find((model) => model.id === selectedModelId) ??
     settings.models.find((model) => model.id === settings.default_model_id) ??
     settings.models[0];
+  const crewModels = useMemo(
+    () =>
+      crewModelIds
+        .map((modelId) =>
+          settings.models.find((model) => model.id === modelId),
+        )
+        .filter((model): model is PersonaModelSettings => model != null),
+    [crewModelIds, settings.models],
+  );
+  const previewModels = useMemo(
+    () =>
+      deploymentMode === 'crew' && crewModels.length > 0
+        ? crewModels
+        : selectedModel
+          ? [selectedModel]
+          : [],
+    [crewModels, deploymentMode, selectedModel],
+  );
+  const previewCharacters = useMemo(
+    () =>
+      previewModels.map((model) => ({
+        id: model.id,
+        modelUrl: model.asset_url,
+      })),
+    [previewModels],
+  );
+  const deploymentIsActive =
+    settings.deployment_mode === deploymentMode &&
+    (deploymentMode === 'crew'
+      ? sameCrew(settings.deployed_model_ids, crewModelIds)
+      : selectedModel?.id === settings.default_model_id);
+  const wheelPageCount = Math.max(
+    1,
+    Math.ceil(settings.models.length / WHEEL_PAGE_SIZE),
+  );
+  const wheelModels = settings.models.slice(
+    wheelPage * WHEEL_PAGE_SIZE,
+    (wheelPage + 1) * WHEEL_PAGE_SIZE,
+  );
+  const activeModelIndex = settings.models.findIndex(
+    (model) => model.id === settings.default_model_id,
+  );
+
+  useEffect(() => {
+    if (deploymentMode === 'solo' && activeModelIndex >= 0) {
+      setWheelPage(Math.floor(activeModelIndex / WHEEL_PAGE_SIZE));
+    } else {
+      setWheelPage((page) => Math.min(page, wheelPageCount - 1));
+    }
+  }, [activeModelIndex, deploymentMode, wheelPageCount]);
 
   const customModelCount = settings.models.filter(
     (model) => model.origin === 'user',
@@ -229,23 +366,77 @@ export function SettingsPage() {
 
   const previewType: PlayableAnimationType =
     previewAnimation?.animation_type ??
-    (previewAnimation ? 'CUSTOM' : 'IDLE');
-  const idleAnimationUrls = useMemo(
-    () => animationUrlsForType(settings.animations, 'IDLE'),
-    [settings.animations],
+    (previewAnimation ? 'CUSTOM' : previewMouthTest ? 'TALK' : 'IDLE');
+  const ambientAnimationUrls = useMemo(
+    () =>
+      animationUrlsForType(
+        settings.animations,
+        previewMouthTest ? 'TALK' : 'IDLE',
+      ),
+    [previewMouthTest, settings.animations],
   );
   const previewClip = previewAnimation?.clips.find(
     (clip) => clip.id === previewClipId,
   );
   const previewAnimationUrls = useMemo(
-    () => (previewClip ? [previewClip.asset_url] : idleAnimationUrls),
-    [idleAnimationUrls, previewClip],
+    () =>
+      previewClip
+        ? [previewClip.asset_url]
+        : previewAnimation
+          ? previewAnimation.clips.map((clip) => clip.asset_url)
+          : ambientAnimationUrls,
+    [ambientAnimationUrls, previewAnimation, previewClip],
   );
+  const previewProceduralPreset =
+    previewAnimation?.procedural_preset ??
+    proceduralPresetForType(
+      settings.animations,
+      previewMouthTest ? 'TALK' : 'IDLE',
+    );
 
   const previewTitle = useMemo(() => {
     if (previewClip) return previewClip.animation_name;
+    if (previewAnimation) return previewAnimation.animation_name;
     return 'Character preview';
-  }, [previewClip]);
+  }, [previewAnimation, previewClip]);
+  const professionalAnimations = useMemo(
+    () =>
+      settings.animations.filter(
+        (animation) => animation.system || animation.clips.length > 0,
+      ),
+    [settings.animations],
+  );
+  const visibleAnimations = useMemo(
+    () =>
+      actionFilter === 'all'
+        ? professionalAnimations
+        : actionFilter === 'captured'
+          ? professionalAnimations.filter(
+              (animation) => animation.clips.length > 0,
+            )
+          : professionalAnimations.filter(
+              (animation) => actionCategory(animation) === actionFilter,
+            ),
+    [actionFilter, professionalAnimations],
+  );
+  const actionCategoryCounts = useMemo(
+    () =>
+      Object.fromEntries(
+        ACTION_CATEGORIES.map(({ id }) => [
+          id,
+          id === 'all'
+            ? professionalAnimations.length
+            : id === 'captured'
+                ? professionalAnimations.filter(
+                    (animation) => animation.clips.length > 0,
+                  ).length
+                : professionalAnimations.filter(
+                    (animation) => actionCategory(animation) === id,
+                  ).length,
+        ]),
+      ) as Record<ActionCategory, number>,
+    [professionalAnimations],
+  );
 
   const updateSnapshot = useCallback((snapshot: PersonaSettingsSnapshot) => {
     setSettings(snapshot);
@@ -400,6 +591,123 @@ export function SettingsPage() {
     if (snapshot) setSelectedModelId(modelId);
   };
 
+  const deployModel = async (modelId: string) => {
+    if (!bridge) {
+      setNotice('Persona bridge unavailable — restart the app and try Deploy again.');
+      return;
+    }
+    const snapshot = await run(
+      () => bridge.deployModel(modelId),
+      'Character deployed and opened on your desktop.',
+    );
+    if (!snapshot) return;
+    crewSelectionDirty.current = false;
+    setSelectedModelId(modelId);
+    setDeploymentMode('solo');
+    setCrewModelIds([modelId]);
+  };
+
+  const deploySelection = async () => {
+    if (!bridge) {
+      setNotice('Persona bridge unavailable — restart the app and try Deploy again.');
+      return;
+    }
+    if (deploymentMode === 'crew') {
+      const modelIds =
+        crewModelIds.length > 0
+          ? crewModelIds
+          : selectedModel
+            ? [selectedModel.id]
+            : [];
+      if (modelIds.length === 0) {
+        setNotice('Select at least one character for the crew.');
+        return;
+      }
+      const snapshot = await run(
+        () => bridge.deployModels(modelIds),
+        modelIds.length > 1
+          ? `Crew of ${modelIds.length} deployed and opened on your desktop.`
+          : 'Character deployed and opened on your desktop.',
+      );
+      if (!snapshot) return;
+      crewSelectionDirty.current = false;
+      setSelectedModelId(snapshot.default_model_id);
+      setDeploymentMode(snapshot.deployment_mode);
+      setCrewModelIds(snapshot.deployed_model_ids);
+      return;
+    }
+    if (!selectedModel) {
+      setNotice('Select a character on the wheel, then Deploy.');
+      return;
+    }
+    await deployModel(selectedModel.id);
+  };
+
+  const chooseModel = (modelId: string) => {
+    setSelectedModelId(modelId);
+    if (deploymentMode === 'crew') {
+      crewSelectionDirty.current = true;
+      setCrewModelIds((current) => {
+        const next = toggleCrewMember(current, modelId);
+        return next.length > 0 ? next : [modelId];
+      });
+      return;
+    }
+    setCrewModelIds([modelId]);
+    if (modelId !== settings.default_model_id) {
+      void setDefaultModel(modelId);
+    }
+  };
+
+  const switchDeploymentMode = (mode: 'solo' | 'crew') => {
+    crewSelectionDirty.current = true;
+    setDeploymentMode(mode);
+    if (mode === 'solo') {
+      const leader =
+        selectedModelId ??
+        crewModelIds[0] ??
+        settings.default_model_id ??
+        settings.models[0]?.id ??
+        null;
+      setCrewModelIds(leader ? [leader] : []);
+      if (leader) setSelectedModelId(leader);
+      return;
+    }
+    if (crewModelIds.length === 0 && selectedModelId) {
+      setCrewModelIds([selectedModelId]);
+    }
+  };
+
+  const pickRandomCrew = () => {
+    if (settings.models.length === 0) return;
+    crewSelectionDirty.current = true;
+    setDeploymentMode('crew');
+    const next = randomCrew(
+      settings.models.map((model) => model.id),
+      Math.min(MAX_CREW_SIZE, settings.models.length),
+    );
+    setCrewModelIds(next);
+    if (next[0]) setSelectedModelId(next[0]);
+  };
+
+  const connectToCodexCli = async () => {
+    if (!bridge) return;
+    setBusy(true);
+    setNotice(null);
+    try {
+      const result = await bridge.connectCodexCli();
+      setCliConnected(true);
+      setNotice(
+        `Codex CLI connected in ${result.config_path}. Start a new Codex session to load Persona.`,
+      );
+    } catch (error) {
+      setCliConnected(false);
+      setNotice(errorMessage(error));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const deleteModel = (model: PersonaModelSettings) => {
     if (!bridge || !model.removable) return;
     openConfirmation({
@@ -548,12 +856,76 @@ export function SettingsPage() {
     setPreviewRequest((request) => request + 1);
   };
 
+  const playProceduralAnimation = useCallback(
+    (animation: PersonaAnimationSettings) => {
+      if (!animation.procedural_preset && animation.clips.length === 0) return;
+      setPreviewMouthTest(false);
+      setPreviewAnimation(animation);
+      setPreviewClipId(null);
+      setPreviewRequest((request) => request + 1);
+    },
+    [],
+  );
+
+  const cycleCandidates = useMemo(
+    () =>
+      visibleAnimations.filter(
+        (animation) =>
+          animation.procedural_preset != null || animation.clips.length > 0,
+      ).sort(
+        (left, right) =>
+          Number(right.clips.length > 0) - Number(left.clips.length > 0),
+      ),
+    [visibleAnimations],
+  );
+
+  useEffect(() => {
+    if (!cycleActions || cycleCandidates.length === 0) return;
+    const timer = window.setInterval(() => {
+      setCycleIndex((current) => {
+        const next = (current + 1) % cycleCandidates.length;
+        playProceduralAnimation(cycleCandidates[next]);
+        return next;
+      });
+    }, 9500);
+    return () => window.clearInterval(timer);
+  }, [cycleActions, cycleCandidates, playProceduralAnimation]);
+
+  useEffect(() => {
+    if (!previewMouthTest) return;
+    const timer = window.setTimeout(() => setPreviewMouthTest(false), 6000);
+    return () => window.clearTimeout(timer);
+  }, [previewMouthTest]);
+
+  const toggleActionCycle = () => {
+    if (cycleActions) {
+      setCycleActions(false);
+      return;
+    }
+    const first = cycleCandidates[0];
+    if (!first) return;
+    setCycleIndex(0);
+    setCycleActions(true);
+    playProceduralAnimation(first);
+  };
+
+  const stepActionCycle = (direction: -1 | 1) => {
+    if (cycleCandidates.length === 0) return;
+    const next =
+      (cycleIndex + direction + cycleCandidates.length) %
+      cycleCandidates.length;
+    setCycleIndex(next);
+    playProceduralAnimation(cycleCandidates[next]);
+  };
+
   const headingSummary =
     section === 'mcp'
       ? mcpStatus
         ? `${mcpStatus.tools.length} tools · ${mcpStatus.playable_actions.length} playable actions`
         : 'Local agent connection'
-      : `${customModelCount} custom models · ${customAnimationCount} custom actions`;
+      : section === 'models'
+        ? `${settings.models.length} characters · ${customModelCount} custom`
+        : `${customModelCount} custom models · ${customAnimationCount} custom actions`;
   const mcpHealth = mcpStatus?.health ?? (mcpLoading ? 'starting' : 'unavailable');
   const mcpServerUrl =
     mcpStatus?.server_url ?? 'http://127.0.0.1:47831/mcp';
@@ -569,7 +941,7 @@ export function SettingsPage() {
     >
       <aside className="settings-sidebar">
         <div className="settings-brand">
-          <img src="./assets/avatar.png" alt="" />
+          <img src="./assets/persona-icon.png" alt="" />
           <div className="settings-brand-copy">
             <strong>Persona</strong>
             <span>Settings</span>
@@ -636,6 +1008,160 @@ export function SettingsPage() {
         <div className="settings-scroll">
           {section === 'models' && (
             <>
+              <section className="settings-panel character-wheel-panel">
+                <div className="panel-heading">
+                  <div>
+                    <h2>Character wheel</h2>
+                    <p>
+                      {deploymentMode === 'crew'
+                        ? `Toggle up to ${MAX_CREW_SIZE} characters. First pick leads the crew.`
+                        : 'Choose a character, then deploy it to your desktop.'}
+                    </p>
+                  </div>
+                  <div className="wheel-toolbar">
+                    <button
+                      aria-label="Previous character wheel"
+                      disabled={wheelPageCount <= 1}
+                      onClick={() =>
+                        setWheelPage(
+                          (page) =>
+                            (page - 1 + wheelPageCount) % wheelPageCount,
+                        )
+                      }
+                      type="button"
+                    >
+                      ‹
+                    </button>
+                    <span className="wheel-count">
+                      {settings.models.length} characters · {wheelPage + 1}/
+                      {wheelPageCount}
+                    </span>
+                    <button
+                      aria-label="Next character wheel"
+                      disabled={wheelPageCount <= 1}
+                      onClick={() =>
+                        setWheelPage(
+                          (page) => (page + 1) % wheelPageCount,
+                        )
+                      }
+                      type="button"
+                    >
+                      ›
+                    </button>
+                  </div>
+                </div>
+                <div className="deployment-mode-bar" role="group" aria-label="Deployment mode">
+                  <button
+                    className={deploymentMode === 'solo' ? 'active' : ''}
+                    onClick={() => switchDeploymentMode('solo')}
+                    type="button"
+                  >
+                    Solo
+                  </button>
+                  <button
+                    className={deploymentMode === 'crew' ? 'active' : ''}
+                    onClick={() => switchDeploymentMode('crew')}
+                    type="button"
+                  >
+                    Crew
+                  </button>
+                  <button
+                    disabled={settings.models.length === 0}
+                    onClick={pickRandomCrew}
+                    type="button"
+                  >
+                    Random crew
+                  </button>
+                  <span className="wheel-count">
+                    {deploymentMode === 'crew'
+                      ? `${crewModelIds.length}/${MAX_CREW_SIZE} selected`
+                      : '1 character'}
+                  </span>
+                </div>
+                {settings.models.length === 0 ? (
+                  <div className="empty-library">
+                    <strong>Your wheel is empty</strong>
+                    <p>Add a VRM model below to create your first character.</p>
+                  </div>
+                ) : (
+                  <div
+                    aria-label="Character selection wheel"
+                    className="model-wheel"
+                    role="group"
+                  >
+                    <div className="model-wheel-rings" aria-hidden="true" />
+                    {wheelModels.map((model, index) => {
+                      const angle = (index / wheelModels.length) * 360;
+                      const crewIndex = crewModelIds.indexOf(model.id);
+                      const isDeployed =
+                        settings.deployment_mode === 'crew'
+                          ? settings.deployed_model_ids.includes(model.id)
+                          : model.id === settings.default_model_id;
+                      const isSelected =
+                        deploymentMode === 'crew'
+                          ? crewIndex >= 0
+                          : model.id === selectedModel?.id;
+                      return (
+                        <button
+                          aria-label={
+                            deploymentMode === 'crew'
+                              ? crewIndex >= 0
+                                ? `Remove ${model.model_name} from crew`
+                                : `Add ${model.model_name} to crew`
+                              : `Choose ${model.model_name}`
+                          }
+                          aria-pressed={isSelected}
+                          className={`model-wheel-item ${
+                            isDeployed ? 'active' : ''
+                          } ${isSelected ? 'selected' : ''}`}
+                          disabled={busy || !bridge}
+                          key={model.id}
+                          onClick={() => chooseModel(model.id)}
+                          style={
+                            {
+                              '--wheel-transform': `translate(-50%, -50%) rotate(${angle}deg) translateY(-154px) rotate(${-angle}deg)`,
+                            } as CSSProperties
+                          }
+                          title={model.model_name}
+                          type="button"
+                        >
+                          {crewIndex >= 0 && deploymentMode === 'crew' && (
+                            <span className="model-wheel-rank" aria-hidden="true">
+                              {crewIndex + 1}
+                            </span>
+                          )}
+                          <span className="model-wheel-avatar" aria-hidden="true">
+                            {modelInitials(model.model_name)}
+                          </span>
+                          <span className="model-wheel-name">
+                            {model.model_name}
+                          </span>
+                        </button>
+                      );
+                    })}
+                    <div className="model-wheel-core" aria-live="polite">
+                      <img src="./assets/persona-icon.png" alt="" />
+                      <small>
+                        {deploymentMode === 'crew'
+                          ? 'Crew selection'
+                          : 'Active character'}
+                      </small>
+                      <strong>
+                        {deploymentMode === 'crew'
+                          ? crewModels.length > 0
+                            ? crewModels
+                                .map((model) => model.model_name)
+                                .join(' · ')
+                            : 'Pick up to 4'
+                          : settings.models.find(
+                              (model) => model.id === settings.default_model_id,
+                            )?.model_name ?? 'Choose one'}
+                      </strong>
+                    </div>
+                  </div>
+                )}
+              </section>
+
               <section className="settings-panel">
                 <div className="panel-heading">
                   <div>
@@ -654,8 +1180,12 @@ export function SettingsPage() {
                     </div>
                   )}
                   {settings.models.map((model) => {
-                    const selected = model.id === selectedModel?.id;
+                    const selected =
+                      deploymentMode === 'crew'
+                        ? crewModelIds.includes(model.id)
+                        : model.id === selectedModel?.id;
                     const isDefault = model.id === settings.default_model_id;
+                    const crewIndex = crewModelIds.indexOf(model.id);
                     return (
                       <article
                         className={`asset-card ${selected ? 'selected' : ''}`}
@@ -663,10 +1193,14 @@ export function SettingsPage() {
                       >
                         <button
                           className="asset-card-main"
-                          onClick={() => setSelectedModelId(model.id)}
+                          onClick={() => chooseModel(model.id)}
                           type="button"
                         >
-                          <span className="asset-icon">VRM</span>
+                          <span className="asset-icon">
+                            {deploymentMode === 'crew' && crewIndex >= 0
+                              ? crewIndex + 1
+                              : 'VRM'}
+                          </span>
                           <span>
                             <strong>{model.model_name}</strong>
                             <small>
@@ -678,7 +1212,11 @@ export function SettingsPage() {
                         </button>
                         <div className="asset-card-footer">
                           {isDefault ? (
-                            <span className="default-badge">Default</span>
+                            <span className="default-badge">
+                              {settings.deployment_mode === 'crew'
+                                ? 'Leader'
+                                : 'Default'}
+                            </span>
                           ) : (
                             <button
                               disabled={busy || !bridge}
@@ -690,7 +1228,16 @@ export function SettingsPage() {
                           )}
                           <div className="asset-card-actions">
                             <button
-                              onClick={() => setSelectedModelId(model.id)}
+                              onClick={() => {
+                                if (deploymentMode === 'crew') {
+                                  setSelectedModelId(model.id);
+                                  if (!crewModelIds.includes(model.id)) {
+                                    chooseModel(model.id);
+                                  }
+                                } else {
+                                  setSelectedModelId(model.id);
+                                }
+                              }}
                               type="button"
                             >
                               Preview
@@ -754,8 +1301,8 @@ export function SettingsPage() {
                   <div>
                     <h2>Animation actions</h2>
                     <p>
-                      Click a VRMA clip to preview that exact animation. Persona
-                      chooses randomly between them when the action runs.
+                      Captured VRMA motion plays first. Generated motion stays
+                      available as a fallback for actions without a clip.
                     </p>
                   </div>
                   <button
@@ -771,8 +1318,69 @@ export function SettingsPage() {
                     Reset packaged actions
                   </button>
                 </div>
+                <div className="action-dashboard">
+                  <div
+                    aria-label="Action categories"
+                    className="action-category-tabs"
+                    role="tablist"
+                  >
+                    {ACTION_CATEGORIES.map((category) => (
+                      <button
+                        aria-selected={actionFilter === category.id}
+                        className={
+                          actionFilter === category.id ? 'selected' : ''
+                        }
+                        key={category.id}
+                        onClick={() => {
+                          setActionFilter(category.id);
+                          setCycleActions(false);
+                          setCycleIndex(0);
+                        }}
+                        role="tab"
+                        type="button"
+                      >
+                        {category.label}
+                        <span>{actionCategoryCounts[category.id]}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="action-cycle-controls">
+                    <div>
+                      <strong>Live action cycle</strong>
+                      <span>
+                        {cycleActions
+                          ? `Playing ${cycleCandidates[cycleIndex]?.animation_name ?? 'action'}`
+                          : `Review ${cycleCandidates.length} ${actionFilter} actions`}
+                      </span>
+                    </div>
+                    <button
+                      aria-label="Previous action"
+                      disabled={cycleCandidates.length === 0}
+                      onClick={() => stepActionCycle(-1)}
+                      type="button"
+                    >
+                      ‹
+                    </button>
+                    <button
+                      className={cycleActions ? 'cycling' : ''}
+                      disabled={cycleCandidates.length === 0}
+                      onClick={toggleActionCycle}
+                      type="button"
+                    >
+                      {cycleActions ? '■ Stop cycle' : '▶ Cycle actions'}
+                    </button>
+                    <button
+                      aria-label="Next action"
+                      disabled={cycleCandidates.length === 0}
+                      onClick={() => stepActionCycle(1)}
+                      type="button"
+                    >
+                      ›
+                    </button>
+                  </div>
+                </div>
                 <div className="animation-list">
-                  {settings.animations.map((animation) => (
+                  {visibleAnimations.map((animation) => (
                     <article
                       className={`animation-card ${
                         animation.system ? 'system-action-card' : ''
@@ -829,6 +1437,31 @@ export function SettingsPage() {
                       </div>
 
                       <div className="animation-clips">
+                        {(animation.procedural_preset ||
+                          animation.clips.length > 0) && (
+                          <button
+                            className={`procedural-preview-button ${
+                              previewAnimation?.id === animation.id &&
+                              previewClipId == null
+                                ? 'playing'
+                                : ''
+                            }`}
+                            onClick={() => playProceduralAnimation(animation)}
+                            type="button"
+                          >
+                            <span aria-hidden="true">▶</span>
+                            <span>
+                              <strong>Preview action</strong>
+                              <small>
+                                {animation.clips.length > 0
+                                  ? `${animation.clips.length} captured clip${
+                                      animation.clips.length === 1 ? '' : 's'
+                                    }`
+                                  : animation.procedural_preset}
+                              </small>
+                            </span>
+                          </button>
+                        )}
                         <div className="animation-clips-heading">
                           <div>
                             <strong>VRMA clips</strong>
@@ -853,13 +1486,9 @@ export function SettingsPage() {
                         </div>
                         {animation.clips.length === 0 ? (
                           <p className="empty-clips">
-                            {animation.system
-                              ? `Upload one or more clips for the ${
-                                  animation.animation_type === 'IDLE'
-                                    ? 'idle'
-                                    : 'speaking'
-                                } state. Persona uses the model pose until then.`
-                              : 'Upload one or more clips to make this action available to MCP.'}
+                            {animation.procedural_preset
+                              ? 'Built-in motion is ready for preview, desktop commands, and MCP. Add VRMA files only if you want alternate clips.'
+                              : 'Upload one or more clips to make this custom action available to MCP.'}
                           </p>
                         ) : (
                           <div className="clip-list">
@@ -1332,7 +1961,7 @@ export function SettingsPage() {
                     <h2>Playable actions</h2>
                     <p>
                       Actions appear in the MCP animation tool after they have
-                      at least one VRMA clip.
+                      built-in motion or at least one VRMA clip.
                     </p>
                   </div>
                   <span className="file-pill">
@@ -1383,7 +2012,11 @@ export function SettingsPage() {
             <div className="preview-header">
               <div>
                 <span className="eyebrow">Live preview</span>
-                <strong>{selectedModel?.model_name ?? 'Persona'}</strong>
+                <strong>
+                  {deploymentMode === 'crew' && previewModels.length > 1
+                    ? `${previewModels.length}-character crew`
+                    : selectedModel?.model_name ?? 'Persona'}
+                </strong>
               </div>
               <span className="preview-live">
                 <i />
@@ -1391,32 +2024,108 @@ export function SettingsPage() {
               </span>
             </div>
             <div className="preview-stage" data-testid="settings-preview">
-              {selectedModel && (
+              {previewCharacters.length > 0 && (
                 <Scene
                   animation={previewType}
                   animationRequest={previewRequest}
                   animationUrls={previewAnimationUrls}
-                  audioLevel={0}
+                  audioLevel={previewMouthTest ? 0.14 : 0}
                   characterSize={settings.character_size}
                   enablePan={false}
                   framingMargin={1.22}
                   groundShadow
-                  modelUrl={selectedModel.asset_url}
+                  characters={previewCharacters}
                   onAnimationComplete={() => {
                     setPreviewAnimation(null);
                     setPreviewClipId(null);
                   }}
-                  playback={previewClip ? 'once' : 'loop'}
-                  speaking={false}
+                  proceduralPreset={previewProceduralPreset}
+                  playback={previewAnimation ? 'once' : 'loop'}
+                  speaking={previewMouthTest}
                 />
               )}
               <div className="preview-hint">
                 Drag to rotate · Scroll to zoom
               </div>
             </div>
+            <button
+              className={`deploy-character-button ${
+                deploymentIsActive ? 'deployed' : ''
+              }`}
+              disabled={
+                busy ||
+                !bridge ||
+                (deploymentMode === 'crew'
+                  ? crewModelIds.length === 0
+                  : !selectedModel)
+              }
+              onClick={() => {
+                void deploySelection();
+              }}
+              type="button"
+            >
+              <span className="deploy-character-icon" aria-hidden="true">
+                {deploymentIsActive ? '✓' : '↗'}
+              </span>
+              <span>
+                <strong>
+                  {deploymentMode === 'crew' && crewModelIds.length > 1
+                    ? 'Deploy crew'
+                    : 'Deploy character'}
+                </strong>
+                <small>
+                  {deploymentIsActive
+                    ? deploymentMode === 'crew' && crewModelIds.length > 1
+                      ? 'Open the active crew on your desktop'
+                      : 'Open the active character on your desktop'
+                    : deploymentMode === 'crew' && crewModelIds.length > 1
+                      ? `Deploy ${crewModelIds.length} characters to Persona`
+                      : `Switch Persona to ${selectedModel?.model_name ?? 'this model'}`}
+                </small>
+              </span>
+              {deploymentIsActive && (
+                <span className="deploy-character-badge">Active</span>
+              )}
+            </button>
+            <button
+              className={`connect-cli-button ${cliConnected ? 'connected' : ''}`}
+              disabled={busy || !bridge || mcpStatus?.health === 'unavailable'}
+              onClick={() => void connectToCodexCli()}
+              type="button"
+            >
+              <span className="connect-cli-icon" aria-hidden="true">
+                &gt;_
+              </span>
+              <span>
+                <strong>
+                  {cliConnected ? 'Connected to Codex CLI' : 'Connect to Codex CLI'}
+                </strong>
+                <small>
+                  {cliConnected
+                    ? 'Persona MCP is registered'
+                    : 'Register the local Persona MCP server'}
+                </small>
+              </span>
+            </button>
             <div className="preview-now-playing">
-              <span>Now previewing</span>
-              <strong>{previewTitle}</strong>
+              <div>
+                <span>Now previewing</span>
+                <strong>
+                  {previewMouthTest ? 'Mouth + speaking test' : previewTitle}
+                </strong>
+              </div>
+              <button
+                className={previewMouthTest ? 'active' : ''}
+                onClick={() => {
+                  setPreviewAnimation(null);
+                  setPreviewClipId(null);
+                  setPreviewMouthTest((active) => !active);
+                  setPreviewRequest((request) => request + 1);
+                }}
+                type="button"
+              >
+                {previewMouthTest ? 'Stop mouth test' : 'Test mouth'}
+              </button>
               {previewAnimation && (
                 <small>{previewAnimation.animation_description}</small>
               )}

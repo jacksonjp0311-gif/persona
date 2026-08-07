@@ -7,7 +7,10 @@ export interface BodyAnimationOverride {
   animation: PlayableAnimationType;
   animationName?: string;
   animationUrls?: string[];
+  mirror?: boolean;
+  proceduralPreset?: string | null;
   requestId: number;
+  source?: 'ambient' | 'command' | 'user';
 }
 
 export function resolveBodyAnimation(

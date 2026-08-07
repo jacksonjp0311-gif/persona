@@ -1,7 +1,188 @@
 {
   "schema_version": 1,
-  "default_model_id": null,
-  "models": [],
+  "default_model_id": "polydancer",
+  "models": [
+    {
+      "id": "polydancer",
+      "model_name": "Polydancer",
+      "asset_path": "models/polydancer.vrm"
+    },
+    {
+      "id": "rose",
+      "model_name": "Rose",
+      "asset_path": "models/rose.vrm"
+    },
+    {
+      "id": "astronaut",
+      "model_name": "Astronaut",
+      "asset_path": "models/astronaut.vrm"
+    },
+    {
+      "id": "witch",
+      "model_name": "Witch",
+      "asset_path": "models/witch.vrm"
+    },
+    {
+      "id": "polybot",
+      "model_name": "Polybot",
+      "asset_path": "models/polybot.vrm"
+    },
+    {
+      "id": "pyre-sorcerer",
+      "model_name": "Pyre Sorcerer",
+      "asset_path": "models/pyre-sorcerer.vrm"
+    },
+    {
+      "id": "moon-girl",
+      "model_name": "Moon Girl",
+      "asset_path": "models/moon-girl.vrm"
+    },
+    {
+      "id": "shark-person",
+      "model_name": "Shark Person",
+      "asset_path": "models/shark-person.vrm"
+    },
+    {
+      "id": "cool-tiger",
+      "model_name": "Cool Tiger",
+      "asset_path": "models/cool-tiger.vrm"
+    },
+    {
+      "id": "bao-samurai",
+      "model_name": "Bao Samurai",
+      "asset_path": "models/bao-samurai.vrm"
+    },
+    {
+      "id": "mushroom-fairy",
+      "model_name": "Mushroom Fairy",
+      "asset_path": "models/mushroom-fairy.vrm"
+    },
+    {
+      "id": "strawberry-princess",
+      "model_name": "Strawberry Princess",
+      "asset_path": "models/strawberry-princess.vrm"
+    },
+    {
+      "id": "devil",
+      "model_name": "Devil",
+      "asset_path": "models/devil.vrm"
+    },
+    {
+      "id": "rabbit",
+      "model_name": "Rabbit",
+      "asset_path": "models/rabbit.vrm"
+    },
+    {
+      "id": "dino-kid",
+      "model_name": "Dino Kid",
+      "asset_path": "models/dino-kid.vrm"
+    },
+    {
+      "id": "zombie",
+      "model_name": "Zombie",
+      "asset_path": "models/zombie.vrm"
+    },
+    {
+      "id": "astrodisco",
+      "model_name": "Astrodisco",
+      "asset_path": "models/astrodisco.vrm"
+    },
+    {
+      "id": "ghost",
+      "model_name": "Ghost",
+      "asset_path": "models/ghost.vrm"
+    },
+    {
+      "id": "cool-alien",
+      "model_name": "Cool Alien",
+      "asset_path": "models/cool-alien.vrm"
+    },
+    {
+      "id": "froggy",
+      "model_name": "Froggy",
+      "asset_path": "models/froggy.vrm"
+    },
+    {
+      "id": "unicorn-person",
+      "model_name": "Unicorn Person",
+      "asset_path": "models/unicorn-person.vrm"
+    },
+    {
+      "id": "cosmic-person",
+      "model_name": "Cosmic Person",
+      "asset_path": "models/cosmic-person.vrm"
+    },
+    {
+      "id": "chill-penguin",
+      "model_name": "Chill Penguin",
+      "asset_path": "models/chill-penguin.vrm"
+    },
+    {
+      "id": "tasty-sandwich",
+      "model_name": "Tasty Sandwich",
+      "asset_path": "models/tasty-sandwich.vrm"
+    },
+    {
+      "id": "cool-turtle",
+      "model_name": "Cool Turtle",
+      "asset_path": "models/cool-turtle.vrm"
+    },
+    {
+      "id": "alien-skeleton",
+      "model_name": "Alien Skeleton",
+      "asset_path": "models/alien-skeleton.vrm"
+    },
+    {
+      "id": "sunflower-person",
+      "model_name": "Sunflower Person",
+      "asset_path": "models/sunflower-person.vrm"
+    },
+    {
+      "id": "falcon-dude",
+      "model_name": "Falcon Dude",
+      "asset_path": "models/falcon-dude.vrm"
+    },
+    {
+      "id": "weird-cat",
+      "model_name": "Weird Cat",
+      "asset_path": "models/weird-cat.vrm"
+    },
+    {
+      "id": "bot-bunny",
+      "model_name": "Bot Bunny",
+      "asset_path": "models/bot-bunny.vrm"
+    },
+    {
+      "id": "good-knight",
+      "model_name": "Good Knight",
+      "asset_path": "models/good-knight.vrm"
+    },
+    {
+      "id": "lady-koi",
+      "model_name": "Lady Koi",
+      "asset_path": "models/lady-koi.vrm"
+    },
+    {
+      "id": "dream-fighter",
+      "model_name": "Dream Fighter",
+      "asset_path": "models/dream-fighter.vrm"
+    },
+    {
+      "id": "lil-shark",
+      "model_name": "Lil Shark",
+      "asset_path": "models/lil-shark.vrm"
+    },
+    {
+      "id": "cool-bee",
+      "model_name": "Cool Bee",
+      "asset_path": "models/cool-bee.vrm"
+    },
+    {
+      "id": "ghost-pumpking",
+      "model_name": "Ghost Pumpking",
+      "asset_path": "models/ghost-pumpking.vrm"
+    }
+  ],
   "animations": [
     {
       "id": "system-idle",
@@ -9,7 +190,10 @@
       "animation_description": "A calm resting motion for the character.",
       "animation_trigger_scenario": "Used automatically while Persona is waiting and not speaking.",
       "animation_type": "IDLE",
-      "asset_paths": []
+      "procedural_preset": "breathing-idle",
+      "asset_paths": [
+        "animations/quaternius-idle.vrma"
+      ]
     },
     {
       "id": "system-speaking",
@@ -17,7 +201,560 @@
       "animation_description": "Natural conversational body movement while the character speaks.",
       "animation_trigger_scenario": "Used automatically while supported voice output is active.",
       "animation_type": "TALK",
+      "procedural_preset": "conversational-talk",
+      "asset_paths": [
+        "animations/quaternius-talking.vrma"
+      ]
+    },
+    {
+      "id": "nfl-quarterback-throw",
+      "animation_name": "quarterback-throw",
+      "animation_description": "A planted drop-back, throwing load, release, and follow-through.",
+      "animation_trigger_scenario": "Use for a pass, launch, decisive handoff, or big reveal.",
+      "animation_type": null,
+      "procedural_preset": "quarterback-throw",
       "asset_paths": []
+    },
+    {
+      "id": "nfl-receiver-catch",
+      "animation_name": "receiver-catch",
+      "animation_description": "A balanced two-hand receiver catch in front of the chest.",
+      "animation_trigger_scenario": "Use when receiving a result, accepting an item, or completing a task.",
+      "animation_type": null,
+      "procedural_preset": "receiver-catch",
+      "asset_paths": []
+    },
+    {
+      "id": "nfl-touchdown-signal",
+      "animation_name": "touchdown-signal",
+      "animation_description": "Both arms lift into the unmistakable touchdown signal.",
+      "animation_trigger_scenario": "Use after a major success or completed deployment.",
+      "animation_type": "HAPPY",
+      "procedural_preset": "touchdown-signal",
+      "asset_paths": []
+    },
+    {
+      "id": "nfl-ball-spike",
+      "animation_name": "ball-spike",
+      "animation_description": "A forceful overhead-to-ground celebration spike.",
+      "animation_trigger_scenario": "Use for a dramatic win or emphatic completion.",
+      "animation_type": "HAPPY",
+      "procedural_preset": "ball-spike",
+      "asset_paths": []
+    },
+    {
+      "id": "nfl-first-down",
+      "animation_name": "first-down",
+      "animation_description": "A confident wide directional first-down gesture.",
+      "animation_trigger_scenario": "Use when progress crosses an important milestone.",
+      "animation_type": null,
+      "procedural_preset": "first-down",
+      "asset_paths": []
+    },
+    {
+      "id": "nfl-juke-left-right",
+      "animation_name": "juke-left-right",
+      "animation_description": "Quick lateral weight shifts inspired by an open-field juke.",
+      "animation_trigger_scenario": "Use for dodging obstacles, changing plans, or playful movement.",
+      "animation_type": null,
+      "procedural_preset": "juke-left-right",
+      "asset_paths": []
+    },
+    {
+      "id": "nfl-stiff-arm",
+      "animation_name": "stiff-arm",
+      "animation_description": "A braced running stance with one strong extended arm.",
+      "animation_trigger_scenario": "Use when blocking a problem or holding a boundary.",
+      "animation_type": null,
+      "procedural_preset": "stiff-arm",
+      "asset_paths": []
+    },
+    {
+      "id": "nfl-huddle-clap",
+      "animation_name": "huddle-clap",
+      "animation_description": "A rhythmic ready-up clap for the team huddle.",
+      "animation_trigger_scenario": "Use before starting a coordinated task.",
+      "animation_type": null,
+      "procedural_preset": "huddle-clap",
+      "asset_paths": []
+    },
+    {
+      "id": "nfl-victory-flex",
+      "animation_name": "victory-flex",
+      "animation_description": "A strong two-arm flex celebration.",
+      "animation_trigger_scenario": "Use for a personal best, win, or powerful result.",
+      "animation_type": "HAPPY",
+      "procedural_preset": "victory-flex",
+      "asset_paths": [
+        "animations/quaternius-chest-open.vrma"
+      ]
+    },
+    {
+      "id": "nfl-griddy-celebration",
+      "animation_name": "griddy-celebration",
+      "animation_description": "An original traveling celebration with alternating knees and swinging arms.",
+      "animation_trigger_scenario": "Use for a playful football-style touchdown celebration.",
+      "animation_type": "DANCE",
+      "procedural_preset": "griddy-celebration",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-two-step",
+      "animation_name": "two-step",
+      "animation_description": "A relaxed side-to-side two-step groove.",
+      "animation_trigger_scenario": "Use as an easy social dance or idle celebration.",
+      "animation_type": "DANCE",
+      "procedural_preset": "two-step",
+      "asset_paths": [
+        "animations/quaternius-power-groove.vrma"
+      ]
+    },
+    {
+      "id": "dance-running-man",
+      "animation_name": "running-man",
+      "animation_description": "Alternating high-knee steps with counter-swinging arms.",
+      "animation_trigger_scenario": "Use for energetic retro dance moments.",
+      "animation_type": "DANCE",
+      "procedural_preset": "running-man",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-heel-toe-shuffle",
+      "animation_name": "heel-toe-shuffle",
+      "animation_description": "A compact heel-and-toe footwork shuffle.",
+      "animation_trigger_scenario": "Use for nimble dance breaks and playful transitions.",
+      "animation_type": "DANCE",
+      "procedural_preset": "heel-toe-shuffle",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-robot-pop",
+      "animation_name": "robot-pop",
+      "animation_description": "Angular arm locks and crisp torso pops.",
+      "animation_trigger_scenario": "Use for robotic, electronic, or beat-driven reactions.",
+      "animation_type": "DANCE",
+      "procedural_preset": "robot-pop",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-body-wave",
+      "animation_name": "body-wave",
+      "animation_description": "A smooth wave travels from the head through the torso.",
+      "animation_trigger_scenario": "Use for a fluid dance accent or transition.",
+      "animation_type": "DANCE",
+      "procedural_preset": "body-wave",
+      "asset_paths": [
+        "animations/space-xr-wave-dance.vrma"
+      ]
+    },
+    {
+      "id": "dance-moonwalk-glide",
+      "animation_name": "moonwalk-glide",
+      "animation_description": "A stylized backward-glide illusion with alternating feet.",
+      "animation_trigger_scenario": "Use for a smooth retro dance moment.",
+      "animation_type": "DANCE",
+      "procedural_preset": "moonwalk-glide",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-salsa-basic",
+      "animation_name": "salsa-basic",
+      "animation_description": "A compact forward-back basic with coordinated hip and arm motion.",
+      "animation_trigger_scenario": "Use for a warm, rhythmic Latin dance beat.",
+      "animation_type": "DANCE",
+      "procedural_preset": "salsa-basic",
+      "asset_paths": [
+        "animations/space-xr-indian-dance.vrma"
+      ]
+    },
+    {
+      "id": "dance-disco-point",
+      "animation_name": "disco-point",
+      "animation_description": "A classic alternating high-and-low disco point.",
+      "animation_trigger_scenario": "Use for bright retro celebrations.",
+      "animation_type": "DANCE",
+      "procedural_preset": "disco-point",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-hip-hop-bounce",
+      "animation_name": "hip-hop-bounce",
+      "animation_description": "A grounded knee-and-chest bounce with relaxed arm groove.",
+      "animation_trigger_scenario": "Use for a steady hip-hop groove.",
+      "animation_type": "DANCE",
+      "procedural_preset": "hip-hop-bounce",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-spin-celebration",
+      "animation_name": "spin-celebration",
+      "animation_description": "An open-arm celebratory turn.",
+      "animation_trigger_scenario": "Use for entrances, reveals, or joyful completions.",
+      "animation_type": "DANCE",
+      "procedural_preset": "spin-celebration",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-the-twist",
+      "animation_name": "the-twist",
+      "animation_description": "A lively heel-and-hip twist with bent arms.",
+      "animation_trigger_scenario": "Use for an upbeat classic party dance.",
+      "animation_type": "DANCE",
+      "procedural_preset": "the-twist",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-charleston-step",
+      "animation_name": "charleston-step",
+      "animation_description": "Alternating forward kicks and swinging arms in a Charleston groove.",
+      "animation_trigger_scenario": "Use for a playful vintage dance break.",
+      "animation_type": "DANCE",
+      "procedural_preset": "charleston-step",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-side-shuffle",
+      "animation_name": "side-shuffle",
+      "animation_description": "Quick side-to-side shuffle steps with coordinated arm swings.",
+      "animation_trigger_scenario": "Use for an energetic modern dance transition.",
+      "animation_type": "DANCE",
+      "procedural_preset": "side-shuffle",
+      "asset_paths": [
+        "animations/space-xr-pop-dance.vrma"
+      ]
+    },
+    {
+      "id": "dance-grapevine-step",
+      "animation_name": "grapevine-step",
+      "animation_description": "A crossing lateral grapevine pattern with open arms.",
+      "animation_trigger_scenario": "Use for social dance and group-dance moments.",
+      "animation_type": "DANCE",
+      "procedural_preset": "grapevine-step",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-jazz-square",
+      "animation_name": "jazz-square",
+      "animation_description": "Four precise crossing steps trace a compact jazz square.",
+      "animation_trigger_scenario": "Use for theatrical or musical-style movement.",
+      "animation_type": "DANCE",
+      "procedural_preset": "jazz-square",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-box-step",
+      "animation_name": "box-step",
+      "animation_description": "A smooth ballroom-inspired box step with held arms.",
+      "animation_trigger_scenario": "Use for calm partner-dance styling.",
+      "animation_type": "DANCE",
+      "procedural_preset": "box-step",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-mambo-step",
+      "animation_name": "mambo-step",
+      "animation_description": "Forward-and-back mambo weight changes with rhythmic hips.",
+      "animation_trigger_scenario": "Use for a lively Latin dance beat.",
+      "animation_type": "DANCE",
+      "procedural_preset": "mambo-step",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-cha-cha",
+      "animation_name": "cha-cha",
+      "animation_description": "Quick triple steps and hip accents form a compact cha-cha.",
+      "animation_trigger_scenario": "Use for fast, playful Latin dance music.",
+      "animation_type": "DANCE",
+      "procedural_preset": "cha-cha",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-arm-wave",
+      "animation_name": "arm-wave",
+      "animation_description": "A smooth wave travels across both arms from hand to hand.",
+      "animation_trigger_scenario": "Use for fluid freestyle and electronic dance accents.",
+      "animation_type": "DANCE",
+      "procedural_preset": "arm-wave",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-freestyle-groove",
+      "animation_name": "freestyle-groove",
+      "animation_description": "A layered full-body groove with bounce, steps, arm swings, and head rhythm.",
+      "animation_trigger_scenario": "Use for a general high-energy dance moment.",
+      "animation_type": "DANCE",
+      "procedural_preset": "freestyle-groove",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-accent-pop",
+      "animation_name": "accent-pop",
+      "animation_description": "A longer captured groove with quick accents, angled poses, and crisp changes of direction.",
+      "animation_trigger_scenario": "Use for upbeat social-dance reactions and punchy beat changes.",
+      "animation_type": "DANCE",
+      "procedural_preset": null,
+      "asset_paths": [
+        "animations/space-xr-accent-pop-long.vrma"
+      ]
+    },
+    {
+      "id": "dance-soft-step",
+      "animation_name": "soft-step",
+      "animation_description": "A relaxed captured step phrase with fluid upper-body accents and natural weight shifts.",
+      "animation_trigger_scenario": "Use for a current soft-groove dance break or a laid-back reaction.",
+      "animation_type": "DANCE",
+      "procedural_preset": null,
+      "asset_paths": [
+        "animations/space-xr-soft-step-long.vrma"
+      ]
+    },
+    {
+      "id": "dance-line-step",
+      "animation_name": "line-step",
+      "animation_description": "A rhythmic captured stepping pattern with repeated directional footwork.",
+      "animation_trigger_scenario": "Use for line-dance energy, two-step rhythms, and group-celebration moments.",
+      "animation_type": "DANCE",
+      "procedural_preset": null,
+      "asset_paths": [
+        "animations/space-xr-line-step-long.vrma"
+      ]
+    },
+    {
+      "id": "dance-street-flow",
+      "animation_name": "street-flow",
+      "animation_description": "A full captured freestyle phrase with grounded steps, torso rhythm, and expressive arms.",
+      "animation_trigger_scenario": "Use for a longer modern freestyle or high-energy desktop dance.",
+      "animation_type": "DANCE",
+      "procedural_preset": null,
+      "asset_paths": [
+        "animations/space-xr-street-flow-long.vrma"
+      ]
+    },
+    {
+      "id": "dance-turn-groove",
+      "animation_name": "turn-groove",
+      "animation_description": "A captured groove phrase built around direction changes and flowing turns.",
+      "animation_trigger_scenario": "Use for entrances, transitions, and smooth social-dance moments.",
+      "animation_type": "DANCE",
+      "procedural_preset": null,
+      "asset_paths": [
+        "animations/space-xr-turn-groove-long.vrma"
+      ]
+    },
+    {
+      "id": "dance-power-freestyle",
+      "animation_name": "power-freestyle",
+      "animation_description": "A bold captured freestyle with broad silhouettes, strong weight shifts, and sustained motion.",
+      "animation_trigger_scenario": "Use for a longer celebration, energetic reveal, or showcase moment.",
+      "animation_type": "DANCE",
+      "procedural_preset": null,
+      "asset_paths": [
+        "animations/space-xr-power-freestyle-long.vrma"
+      ]
+    },
+    {
+      "id": "dance-justice-bounce",
+      "animation_name": "justice-bounce",
+      "animation_description": "Deep knee bounce with big overhead arm swings — a viral party celebration groove.",
+      "animation_trigger_scenario": "Use for hype wins, drop moments, and crowd energy.",
+      "animation_type": "DANCE",
+      "procedural_preset": "justice-bounce",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-floss-swing",
+      "animation_name": "floss-swing",
+      "animation_description": "Arms whip front-to-back while hips counter-swing in a tight floss groove.",
+      "animation_trigger_scenario": "Use for meme energy, flexes, and playful taunts.",
+      "animation_type": "DANCE",
+      "procedural_preset": "floss-swing",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-electro-shuffle",
+      "animation_name": "electro-shuffle",
+      "animation_description": "Sharp side shuffles with robotic arm pops on the beat.",
+      "animation_trigger_scenario": "Use for electronic music and snappy transitions.",
+      "animation_type": "DANCE",
+      "procedural_preset": "electro-shuffle",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-take-the-l",
+      "animation_name": "take-the-l",
+      "animation_description": "One hand forms an L near the forehead while the body bounces.",
+      "animation_trigger_scenario": "Use for cheeky losses, roasting, or comic relief.",
+      "animation_type": "DANCE",
+      "procedural_preset": "take-the-l",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-hammer-fresh",
+      "animation_name": "hammer-fresh",
+      "animation_description": "Wide low stance with swinging elbows in a classic baggy-pants groove.",
+      "animation_trigger_scenario": "Use for old-school hip-hop and confident swagger.",
+      "animation_type": "DANCE",
+      "procedural_preset": "hammer-fresh",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-renegade-hit",
+      "animation_name": "renegade-hit",
+      "animation_description": "Alternating arm hits and sharp steps in a TikTok-style hit combo.",
+      "animation_trigger_scenario": "Use for trend reactions and high-energy social moments.",
+      "animation_type": "DANCE",
+      "procedural_preset": "renegade-hit",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-say-so-bounce",
+      "animation_name": "say-so-bounce",
+      "animation_description": "Soft hip sway and hand flourishes over a smooth bounce.",
+      "animation_trigger_scenario": "Use for chill vibes, flirtatious energy, or laid-back wins.",
+      "animation_type": "DANCE",
+      "procedural_preset": "say-so-bounce",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-pony-gallop",
+      "animation_name": "pony-gallop",
+      "animation_description": "Galloping knees and alternating arm pulls like riding a pony.",
+      "animation_trigger_scenario": "Use for silly celebrations and party breaks.",
+      "animation_type": "DANCE",
+      "procedural_preset": "pony-gallop",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-whip-nae",
+      "animation_name": "whip-nae",
+      "animation_description": "A whip arm slash that flips into a bouncy nae-nae groove.",
+      "animation_trigger_scenario": "Use for comedic turns and 2010s party energy.",
+      "animation_type": "DANCE",
+      "procedural_preset": "whip-nae",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-carlton-bounce",
+      "animation_name": "carlton-bounce",
+      "animation_description": "Arms high with a cheerful vertical bounce and soft hand flicks.",
+      "animation_trigger_scenario": "Use for wholesome wins and sitcom energy.",
+      "animation_type": "DANCE",
+      "procedural_preset": "carlton-bounce",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-macarena-wave",
+      "animation_name": "macarena-wave",
+      "animation_description": "Sequential arm gestures that build into a hip-sway chorus.",
+      "animation_trigger_scenario": "Use for group fun, nostalgia, and instructional moments.",
+      "animation_type": "DANCE",
+      "procedural_preset": "macarena-wave",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-thriller-walk",
+      "animation_name": "thriller-walk",
+      "animation_description": "Stiff-armed horror walk with hunched shoulders and slow steps.",
+      "animation_trigger_scenario": "Use for spooky themes, suspense, or dramatic flair.",
+      "animation_type": "DANCE",
+      "procedural_preset": "thriller-walk",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-toosie-slide",
+      "animation_name": "toosie-slide",
+      "animation_description": "Side slide steps with a pointing arm accent on the beat.",
+      "animation_trigger_scenario": "Use for modern pop reactions and casual flexes.",
+      "animation_type": "DANCE",
+      "procedural_preset": "toosie-slide",
+      "asset_paths": []
+    },
+    {
+      "id": "dance-scenario-groove",
+      "animation_name": "scenario-groove",
+      "animation_description": "Sharp torso hits and wide arm accents in a 90s house groove.",
+      "animation_trigger_scenario": "Use for classic club energy and bold entrances.",
+      "animation_type": "DANCE",
+      "procedural_preset": "scenario-groove",
+      "asset_paths": []
+    },
+    {
+      "id": "talk-open-hand-explain",
+      "animation_name": "open-hand-explain",
+      "animation_description": "Open palms and measured arm movement support an explanation.",
+      "animation_trigger_scenario": "Use while clarifying a concept or presenting options.",
+      "animation_type": null,
+      "procedural_preset": "open-hand-explain",
+      "asset_paths": [
+        "animations/quaternius-interact.vrma"
+      ]
+    },
+    {
+      "id": "talk-thoughtful-nod",
+      "animation_name": "thoughtful-nod",
+      "animation_description": "A reflective chin-touch pose with a gentle nod.",
+      "animation_trigger_scenario": "Use while considering a question or weighing evidence.",
+      "animation_type": null,
+      "procedural_preset": "thoughtful-nod",
+      "asset_paths": []
+    },
+    {
+      "id": "talk-agree-enthusiastic",
+      "animation_name": "agree-enthusiastic",
+      "animation_description": "Quick positive nods with an engaged forward posture.",
+      "animation_trigger_scenario": "Use to show strong agreement or confirmation.",
+      "animation_type": null,
+      "procedural_preset": "agree-enthusiastic",
+      "asset_paths": [
+        "animations/quaternius-enthusiastic-yes.vrma"
+      ]
+    },
+    {
+      "id": "talk-disagree-shake",
+      "animation_name": "disagree-shake",
+      "animation_description": "A clear but friendly side-to-side head shake.",
+      "animation_trigger_scenario": "Use for a correction, warning, or disagreement.",
+      "animation_type": null,
+      "procedural_preset": "disagree-shake",
+      "asset_paths": []
+    },
+    {
+      "id": "talk-shrug",
+      "animation_name": "shrug",
+      "animation_description": "Raised hands and tilted head communicate uncertainty.",
+      "animation_trigger_scenario": "Use when an answer is unknown or depends on context.",
+      "animation_type": null,
+      "procedural_preset": "shrug",
+      "asset_paths": []
+    },
+    {
+      "id": "talk-welcome-wave",
+      "animation_name": "welcome-wave",
+      "animation_description": "A raised-hand wave with a warm upper-body turn.",
+      "animation_trigger_scenario": "Use for greetings, arrivals, and friendly sign-offs.",
+      "animation_type": "GREETING",
+      "procedural_preset": "welcome-wave",
+      "asset_paths": []
+    },
+    {
+      "id": "talk-big-idea",
+      "animation_name": "big-idea",
+      "animation_description": "A lifted index-hand pose signals a useful new idea.",
+      "animation_trigger_scenario": "Use when introducing an insight or recommended solution.",
+      "animation_type": null,
+      "procedural_preset": "big-idea",
+      "asset_paths": []
+    },
+    {
+      "id": "talk-calm-listen",
+      "animation_name": "calm-listen",
+      "animation_description": "A relaxed attentive stance with subtle listening nods.",
+      "animation_trigger_scenario": "Use while waiting for the user or receiving instructions.",
+      "animation_type": null,
+      "procedural_preset": "calm-listen",
+      "asset_paths": [
+        "animations/quaternius-folded-arms.vrma"
+      ]
     }
   ]
 }

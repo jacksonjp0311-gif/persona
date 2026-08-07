@@ -27,3 +27,23 @@ test("requires an explicitly selected model before the avatar can start", () => 
     true,
   );
 });
+
+test("accepts any installed member of a deployed crew and supports legacy snapshots", () => {
+  assert.equal(
+    snapshotHasConfiguredModel({
+      default_model_id: "leader",
+      deployed_model_ids: ["missing-leader", "available-model"],
+      models: [{ id: "available-model" }],
+    }),
+    true,
+  );
+  assert.equal(
+    snapshotHasConfiguredModel({
+      default_model_id: "available-model",
+      deployed_model_ids: ["missing-model"],
+      models: [{ id: "available-model" }],
+    }),
+    false,
+  );
+  assert.equal(snapshotHasConfiguredModel(null), false);
+});

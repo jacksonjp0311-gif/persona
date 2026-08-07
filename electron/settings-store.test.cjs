@@ -77,6 +77,8 @@ test("starts with permanent empty Idle and Speaking actions", (context) => {
   assert.equal(snapshot.character_size, 1);
   assert.equal(snapshot.packaged_animation_change_count, 0);
   assert.equal(snapshot.default_model_id, null);
+  assert.deepEqual(snapshot.deployed_model_ids, []);
+  assert.equal(snapshot.deployment_mode, "solo");
   assert.deepEqual(snapshot.models, []);
   assert.deepEqual(
     snapshot.animations.map(
@@ -121,6 +123,8 @@ test("imports, persists, resolves, and deletes user assets", (context) => {
   const model = snapshot.models.find((candidate) => candidate.origin === "user");
   assert.ok(model);
   assert.equal(snapshot.default_model_id, model.id);
+  assert.deepEqual(snapshot.deployed_model_ids, [model.id]);
+  assert.equal(snapshot.deployment_mode, "solo");
   snapshot = store.importModel({
     filePath: alternateModel,
     model_name: "Alternate Assistant",
@@ -166,8 +170,10 @@ test("imports, persists, resolves, and deletes user assets", (context) => {
   assert.equal(fs.existsSync(storedAnimation), false);
   snapshot = store.deleteModel(model.id);
   assert.equal(snapshot.default_model_id, alternate.id);
+  assert.deepEqual(snapshot.deployed_model_ids, [alternate.id]);
   snapshot = store.deleteModel(alternate.id);
   assert.equal(snapshot.default_model_id, null);
+  assert.deepEqual(snapshot.deployed_model_ids, []);
 
   const reloaded = createSettingsStore({ userDataPath, packagedLibraryPath }).getSnapshot();
   assert.equal(
@@ -212,12 +218,157 @@ test("keeps user library records when migrating the earlier settings schema", (c
   );
 
   const snapshot = createSettingsStore({ userDataPath, packagedLibraryPath }).getSnapshot();
-  assert.equal(snapshot.schema_version, 3);
+  assert.equal(snapshot.schema_version, 4);
   assert.equal(snapshot.default_model_id, modelId);
+  assert.deepEqual(snapshot.deployed_model_ids, [modelId]);
+  assert.equal(snapshot.deployment_mode, "solo");
   assert.equal(snapshot.character_size, 1.15);
   assert.ok(snapshot.models.some((model) => model.id === modelId));
   assert.ok(
     snapshot.animations.some((animation) => animation.id === animationId),
+  );
+});
+
+test("migrates schema v3 deployment state without losing user animation clips", (context) => {
+  const { userDataPath, packagedLibraryPath } = fixture(context);
+  const modelId = "11111111-1111-4111-8111-111111111111";
+  const animationId = "22222222-2222-4222-8222-222222222222";
+  const clipId = "33333333-3333-4333-8333-333333333333";
+  const modelDirectory = path.join(userDataPath, "assets", "models");
+  const animationDirectory = path.join(userDataPath, "assets", "animations");
+  fs.mkdirSync(modelDirectory, { recursive: true });
+  fs.mkdirSync(animationDirectory, { recursive: true });
+  writeGlb(path.join(modelDirectory, `${modelId}.vrm`));
+  writeGlb(path.join(animationDirectory, `${clipId}.vrma`));
+  fs.writeFileSync(
+    path.join(userDataPath, "settings.json"),
+    JSON.stringify({
+      schema_version: 3,
+      default_model_id: modelId,
+      character_size: 1,
+      models: [
+        {
+          id: modelId,
+          model_name: "V3 model",
+          stored_filename: `${modelId}.vrm`,
+        },
+      ],
+      animations: [
+        {
+          id: animationId,
+          animation_name: "v3-motion",
+          animation_description: "A retained v3 user motion.",
+          animation_trigger_scenario: "Use while testing v3 migration.",
+        },
+      ],
+      animation_clips: {
+        [animationId]: [
+          {
+            id: clipId,
+            stored_filename: `${clipId}.vrma`,
+            clip_name: "v3-motion1",
+          },
+        ],
+      },
+      packaged_animation_overrides: {},
+      hidden_packaged_animation_ids: [],
+    }),
+  );
+
+  const snapshot = createSettingsStore({
+    userDataPath,
+    packagedLibraryPath,
+  }).getSnapshot();
+  const animation = snapshot.animations.find(
+    (candidate) => candidate.id === animationId,
+  );
+  assert.equal(snapshot.schema_version, 4);
+  assert.deepEqual(snapshot.deployed_model_ids, [modelId]);
+  assert.equal(snapshot.deployment_mode, "solo");
+  assert.ok(animation);
+  assert.equal(animation.clips.length, 1);
+  assert.equal(animation.clips[0].id, clipId);
+  assert.equal(
+    JSON.parse(
+      fs.readFileSync(path.join(userDataPath, "settings.json"), "utf8"),
+    ).schema_version,
+    4,
+  );
+});
+
+test("deploys, persists, promotes, and collapses an ordered crew", (context) => {
+  const { root, userDataPath, packagedLibraryPath } = fixture(context);
+  const store = createSettingsStore({ userDataPath, packagedLibraryPath });
+  const models = [];
+  for (const name of ["Leader", "Second", "Third", "Fourth"]) {
+    const source = path.join(root, `${name.toLowerCase()}.vrm`);
+    writeGlb(source);
+    const snapshot = store.importModel({
+      filePath: source,
+      model_name: name,
+    });
+    models.push(
+      snapshot.models.find((candidate) => candidate.model_name === name),
+    );
+  }
+  assert.ok(models.every(Boolean));
+
+  const orderedIds = [models[2].id, models[0].id, models[3].id];
+  let snapshot = store.deployModels(orderedIds);
+  assert.equal(snapshot.deployment_mode, "crew");
+  assert.deepEqual(snapshot.deployed_model_ids, orderedIds);
+  assert.equal(snapshot.default_model_id, orderedIds[0]);
+
+  snapshot = createSettingsStore({
+    userDataPath,
+    packagedLibraryPath,
+  }).getSnapshot();
+  assert.equal(snapshot.deployment_mode, "crew");
+  assert.deepEqual(snapshot.deployed_model_ids, orderedIds);
+
+  snapshot = store.deleteModel(orderedIds[0]);
+  assert.equal(snapshot.deployment_mode, "crew");
+  assert.deepEqual(snapshot.deployed_model_ids, orderedIds.slice(1));
+  assert.equal(snapshot.default_model_id, orderedIds[1]);
+
+  snapshot = store.deleteModel(orderedIds[1]);
+  assert.equal(snapshot.deployment_mode, "solo");
+  assert.deepEqual(snapshot.deployed_model_ids, [orderedIds[2]]);
+  assert.equal(snapshot.default_model_id, orderedIds[2]);
+
+  snapshot = store.setDefaultModel(models[1].id);
+  assert.equal(snapshot.deployment_mode, "solo");
+  assert.deepEqual(snapshot.deployed_model_ids, [models[1].id]);
+});
+
+test("validates crew deployment membership, uniqueness, and size", (context) => {
+  const { root, userDataPath, packagedLibraryPath } = fixture(context);
+  const store = createSettingsStore({ userDataPath, packagedLibraryPath });
+  const ids = [];
+  for (let index = 1; index <= 5; index += 1) {
+    const source = path.join(root, `model-${index}.vrm`);
+    writeGlb(source);
+    const snapshot = store.importModel({
+      filePath: source,
+      model_name: `Model ${index}`,
+    });
+    ids.push(
+      snapshot.models.find(
+        (candidate) => candidate.model_name === `Model ${index}`,
+      ).id,
+    );
+  }
+
+  assert.throws(() => store.deployModels(null), /provided as an array/);
+  assert.throws(() => store.deployModels([]), /at least one/);
+  assert.throws(() => store.deployModels(ids), /up to 4/);
+  assert.throws(
+    () => store.deployModels([ids[0], ids[0]]),
+    /only appear once/,
+  );
+  assert.throws(
+    () => store.deployModels([ids[0], "missing-model"]),
+    /must be installed/,
   );
 });
 

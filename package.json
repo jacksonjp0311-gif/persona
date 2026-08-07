@@ -40,10 +40,13 @@
     "demo": "npm run build && electron .",
     "assets:check": "node scripts/check-assets.cjs",
     "assets:release": "node scripts/check-assets.cjs --release",
+    "motion:convert": "node scripts/convert-bvh-to-vrma.mjs",
+    "motion:convert:glb": "node scripts/convert-glb-to-vrma.mjs",
+    "motion:check": "node scripts/validate-motion-assets.mjs",
     "native:build": "node scripts/build-native.cjs",
     "native:test": "node scripts/test-native.cjs",
     "audit:production": "npm audit --omit=dev --audit-level=high",
-    "check": "npm run lint && npm test && npm run assets:check && npm run audit:production && npm run build",
+    "check": "npm run lint && npm test && npm run assets:check && npm run motion:check && npm run audit:production && npm run build",
     "dist:linux": "npm run build && node scripts/build-linux.cjs",
     "dist:appimage": "npm run build && electron-builder --linux AppImage --publish never",
     "dist:windows": "npm run native:build && npm run native:test && npm run build && electron-builder --win nsis --publish never",
@@ -103,7 +106,7 @@
     "linux": {
       "category": "Utility",
       "executableName": "persona",
-      "icon": "public/assets/avatar.png",
+      "icon": "public/assets/persona-icon.png",
       "syncDesktopName": true,
       "artifactName": "Persona-${version}-linux-${arch}.${ext}",
       "target": [
@@ -116,7 +119,7 @@
         "nsis"
       ],
       "artifactName": "Persona-${version}-windows-${arch}-setup.${ext}",
-      "icon": "public/assets/avatar.png",
+      "icon": "icons/persona.ico",
       "requestedExecutionLevel": "asInvoker",
       "signExts": [
         "persona-audio-listener.exe"
@@ -142,7 +145,7 @@
       ],
       "artifactName": "Persona-${version}-macos-${arch}.${ext}",
       "category": "public.app-category.utilities",
-      "icon": "public/assets/avatar.png",
+      "icon": "public/assets/persona-icon.png",
       "minimumSystemVersion": "14.2.0",
       "hardenedRuntime": true,
       "entitlements": "build/entitlements.mac.plist",
