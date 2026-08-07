@@ -142,11 +142,19 @@ function settingsWindowIsFocused() {
   );
 }
 
-function enableOverlayClickThrough(window) {
+function setOverlayMouseMode(window, { clickThrough }) {
   if (!window || window.isDestroyed()) return;
-  // Forward mousemove so the renderer can re-enable hits on chrome controls.
-  // Default click-through so Settings/Deploy stay usable under the avatar.
-  window.setIgnoreMouseEvents(true, { forward: true });
+  if (clickThrough) {
+    // Only while Settings is focused — permanent click-through on Windows
+    // transparent windows can stop compositing (avatar looks invisible).
+    window.setIgnoreMouseEvents(true, { forward: true });
+  } else {
+    window.setIgnoreMouseEvents(false);
+  }
+}
+
+function disableOverlayClickThrough(window) {
+  setOverlayMouseMode(window, { clickThrough: false });
 }
 
 function startAlwaysOnTopAssert() {
@@ -163,10 +171,9 @@ function startAlwaysOnTopAssert() {
     pinOverlayAboveWindows(avatarWindow, {
       raise: !settingsFocused,
     });
-    // Re-assert click-through so a stuck hit-test never blocks Deploy.
-    if (settingsFocused) {
-      enableOverlayClickThrough(avatarWindow);
-    }
+    // Click-through ONLY over Settings so Deploy works; otherwise normal hits
+    // so the avatar stays visible and interactive.
+    setOverlayMouseMode(avatarWindow, { clickThrough: settingsFocused });
   }, 1000);
   alwaysOnTopAssertTimer.unref?.();
 }
@@ -345,12 +352,9 @@ function showOverlay({ focus = false, recreate = false } = {}) {
   // Always force-show on deploy — do not no-op when already "visible" but buried.
   positionWindow(window);
   pinOverlayAboveWindows(window, { raise: true });
-  enableOverlayClickThrough(window);
-  if (!window.isVisible()) {
-    window.show();
-  } else {
-    window.show();
-  }
+  // Keep mouse capture so WebGL composites; only punch-through when Settings focused.
+  setOverlayMouseMode(window, { clickThrough: settingsWindowIsFocused() });
+  window.show();
   window.setOpacity(1);
   if (focus) {
     window.focus();
@@ -480,20 +484,23 @@ function createWindow() {
   avatarWindow = window;
 
   pinOverlayAboveWindows(window, { raise: true });
-  enableOverlayClickThrough(window);
+  // Keep mouse events enabled so the transparent layer still composites.
+  disableOverlayClickThrough(window);
   window.setOpacity(1);
   startAlwaysOnTopAssert();
   window.once("ready-to-show", () => {
     if (window.isDestroyed()) return;
     positionWindow(window);
     pinOverlayAboveWindows(window, { raise: true });
-    enableOverlayClickThrough(window);
+    disableOverlayClickThrough(window);
     scheduleHyprlandWindowConfiguration();
   });
   window.on("show", () => {
     if (window.isDestroyed()) return;
     pinOverlayAboveWindows(window, { raise: true });
-    enableOverlayClickThrough(window);
+    setOverlayMouseMode(window, {
+      clickThrough: settingsWindowIsFocused(),
+    });
     startAlwaysOnTopAssert();
     window.setOpacity(1);
     scheduleHyprlandWindowConfiguration({

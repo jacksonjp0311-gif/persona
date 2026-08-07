@@ -14,12 +14,9 @@ import {
 } from './components/DanceSelector';
 import {
   animationUrlsForType,
-  type AnimationType,
+  type PlayableAnimationType,
 } from './animation-catalog';
-import {
-  finishBodyAnimationOverride,
-  type BodyAnimationOverride,
-} from './animation-priority';
+import { type BodyAnimationOverride } from './animation-priority';
 import {
   loadPackagedSettingsFallback,
   SETTINGS_FALLBACK,
@@ -38,11 +35,9 @@ const INITIAL_STATE: VoiceState = {
   phase: 'inactive',
 };
 
-/** Always-on default dance when deployed and not speaking. */
 const DEFAULT_DANCE_PRESET = 'freestyle-groove';
 const DEFAULT_DANCE_NAME = 'freestyle-groove';
 const EMPTY_ANIMATION_URLS: string[] = [];
-/** How often AUTO mode rotates to another featured dance. */
 const AUTO_DANCE_ROTATE_MS = 12_000;
 
 export function App() {
@@ -75,13 +70,24 @@ export function App() {
       } else if (event.type === 'animation') {
         if (event.requestId == null) return;
         const source = event.source ?? 'command';
-        // User lock wins over ambient rotation from main.
+        // User-locked dance wins over ambient shuffle.
         if (source === 'ambient' && lockedDanceIdRef.current != null) {
           return;
         }
-        // Commands (one-shots) still apply; ambient is handled client-side.
+        // Command/MCP actions must always apply and must not be stomped.
+        if (source === 'command') {
+          setBodyOverride({
+            animation: event.animation,
+            animationName: event.animationName,
+            animationUrls: event.animationUrls,
+            mirror: event.mirror ?? false,
+            proceduralPreset: event.proceduralPreset,
+            requestId: event.requestId,
+            source: 'command',
+          });
+          return;
+        }
         if (source === 'ambient') {
-          // Prefer client auto-rotate; accept main ambient only if unlocked.
           setBodyOverride({
             animation: 'DANCE',
             animationName: event.animationName ?? DEFAULT_DANCE_NAME,
@@ -92,20 +98,7 @@ export function App() {
             requestId: event.requestId,
             source: 'ambient',
           });
-          return;
         }
-        setBodyOverride({
-          animation: event.animation,
-          animationName: event.animationName,
-          animationUrls:
-            event.animation === 'DANCE' && event.proceduralPreset
-              ? EMPTY_ANIMATION_URLS
-              : event.animationUrls,
-          mirror: event.animation === 'DANCE' ? false : event.mirror,
-          proceduralPreset: event.proceduralPreset,
-          requestId: event.requestId,
-          source,
-        });
       }
     });
   }, []);
@@ -170,15 +163,12 @@ export function App() {
       source: 'ambient' | 'user',
     ) => {
       danceRequestId.current += 1;
-      const preset =
-        dance?.proceduralPreset ?? DEFAULT_DANCE_PRESET;
-      const name = dance?.animationName ?? DEFAULT_DANCE_NAME;
       setBodyOverride({
         animation: 'DANCE',
-        animationName: name,
+        animationName: dance?.animationName ?? DEFAULT_DANCE_NAME,
         animationUrls: EMPTY_ANIMATION_URLS,
         mirror: false,
-        proceduralPreset: preset,
+        proceduralPreset: dance?.proceduralPreset ?? DEFAULT_DANCE_PRESET,
         requestId: danceRequestId.current,
         source,
       });
@@ -196,7 +186,6 @@ export function App() {
 
   const unlockAutoDance = useCallback(() => {
     setLockedDanceId(null);
-    // Immediately resume continuous auto dance (no idle freeze).
     const next =
       danceOptions[
         autoIndexRef.current % Math.max(danceOptions.length, 1)
@@ -204,19 +193,15 @@ export function App() {
     startDance(next, 'ambient');
   }, [danceOptions, startDance]);
 
-  // Non-stop dancing while deployed (client-driven — does not wait on main).
+  // Keep a dance running when idle — never overwrite MCP/command actions.
   useEffect(() => {
-    if (speaking) {
-      setBodyOverride((current) =>
-        current?.source === 'ambient' || current?.source === 'user'
-          ? null
-          : current,
-      );
-      return;
-    }
+    if (speaking) return;
 
-    if (lockedDanceId != null) {
-      setBodyOverride((current) => {
+    setBodyOverride((current) => {
+      // Let one-shot MCP/protocol actions finish.
+      if (current?.source === 'command') return current;
+
+      if (lockedDanceId != null) {
         if (current?.source === 'user' && current.proceduralPreset) {
           return current;
         }
@@ -224,8 +209,7 @@ export function App() {
         danceRequestId.current += 1;
         return {
           animation: 'DANCE',
-          animationName:
-            locked?.animationName ?? DEFAULT_DANCE_NAME,
+          animationName: locked?.animationName ?? DEFAULT_DANCE_NAME,
           animationUrls: EMPTY_ANIMATION_URLS,
           mirror: false,
           proceduralPreset:
@@ -233,15 +217,15 @@ export function App() {
           requestId: danceRequestId.current,
           source: 'user',
         };
-      });
-      return;
-    }
+      }
 
-    // AUTO: ensure a dance is active once, then interval rotates it.
-    setBodyOverride((current) => {
       if (current?.source === 'ambient' && current.proceduralPreset) {
         return current;
       }
+      if (current?.source === 'user' && lockedDanceId == null) {
+        // Fall through to ambient after unlock.
+      }
+
       const seed =
         danceOptions[
           autoIndexRef.current % Math.max(danceOptions.length, 1)
@@ -252,31 +236,48 @@ export function App() {
         animationName: seed?.animationName ?? DEFAULT_DANCE_NAME,
         animationUrls: EMPTY_ANIMATION_URLS,
         mirror: false,
-        proceduralPreset:
-          seed?.proceduralPreset ?? DEFAULT_DANCE_PRESET,
+        proceduralPreset: seed?.proceduralPreset ?? DEFAULT_DANCE_PRESET,
         requestId: danceRequestId.current,
         source: 'ambient',
       };
     });
   }, [danceOptions, lockedDanceId, speaking]);
 
-  // AUTO mode: rotate featured dances forever.
+  // AUTO shuffle — skip while a command action owns the body.
   useEffect(() => {
-    if (speaking || lockedDanceId != null) {
-      return;
-    }
+    if (speaking || lockedDanceId != null) return;
     const timer = window.setInterval(() => {
-      if (danceOptions.length === 0) {
-        startDance(null, 'ambient');
-        return;
-      }
-      autoIndexRef.current =
-        (autoIndexRef.current + 1) % danceOptions.length;
-      const next = danceOptions[autoIndexRef.current];
-      startDance(next, 'ambient');
+      setBodyOverride((current) => {
+        if (current?.source === 'command') return current;
+        if (danceOptions.length === 0) {
+          danceRequestId.current += 1;
+          return {
+            animation: 'DANCE',
+            animationName: DEFAULT_DANCE_NAME,
+            animationUrls: EMPTY_ANIMATION_URLS,
+            mirror: false,
+            proceduralPreset: DEFAULT_DANCE_PRESET,
+            requestId: danceRequestId.current,
+            source: 'ambient',
+          };
+        }
+        autoIndexRef.current =
+          (autoIndexRef.current + 1) % danceOptions.length;
+        const next = danceOptions[autoIndexRef.current];
+        danceRequestId.current += 1;
+        return {
+          animation: 'DANCE',
+          animationName: next.animationName,
+          animationUrls: EMPTY_ANIMATION_URLS,
+          mirror: false,
+          proceduralPreset: next.proceduralPreset ?? DEFAULT_DANCE_PRESET,
+          requestId: danceRequestId.current,
+          source: 'ambient',
+        };
+      });
     }, AUTO_DANCE_ROTATE_MS);
     return () => window.clearInterval(timer);
-  }, [danceOptions, lockedDanceId, speaking, startDance]);
+  }, [danceOptions, lockedDanceId, speaking]);
 
   const deployedModels = useMemo(
     () => resolveDeployedModels(settings),
@@ -291,12 +292,11 @@ export function App() {
     [deployedModels],
   );
 
-  // Body animation: talk while speaking, otherwise always dance.
-  const animation: AnimationType = speaking
+  const commandActive = bodyOverride?.source === 'command';
+
+  const animation: PlayableAnimationType = speaking
     ? 'TALK'
-    : bodyOverride != null &&
-        bodyOverride.animation !== 'DANCE' &&
-        bodyOverride.animation !== 'CUSTOM'
+    : commandActive && bodyOverride
       ? bodyOverride.animation
       : 'DANCE';
 
@@ -309,27 +309,38 @@ export function App() {
 
   const animationUrls = speaking
     ? talkUrls
-    : EMPTY_ANIMATION_URLS;
+    : commandActive
+      ? (bodyOverride?.animationUrls ?? EMPTY_ANIMATION_URLS)
+      : EMPTY_ANIMATION_URLS;
 
   const proceduralPreset = speaking
     ? 'conversational-talk'
-    : (bodyOverride?.proceduralPreset ?? DEFAULT_DANCE_PRESET);
+    : commandActive
+      ? (bodyOverride?.proceduralPreset ?? null)
+      : (bodyOverride?.proceduralPreset ?? DEFAULT_DANCE_PRESET);
 
-  const overrideRequestId = bodyOverride?.requestId ?? null;
   const handleAnimationComplete = useCallback(() => {
-    if (overrideRequestId == null) return;
-    if (
-      bodyOverride?.source === 'user' ||
-      bodyOverride?.source === 'ambient'
-    ) {
-      return;
-    }
-    setBodyOverride((current) =>
-      finishBodyAnimationOverride(current, overrideRequestId),
-    );
-  }, [bodyOverride?.source, overrideRequestId]);
+    setBodyOverride((current) => {
+      if (current?.source !== 'command') return current;
+      // Resume continuous dance after a one-shot MCP/protocol action.
+      danceRequestId.current += 1;
+      return {
+        animation: 'DANCE',
+        animationName: DEFAULT_DANCE_NAME,
+        animationUrls: EMPTY_ANIMATION_URLS,
+        mirror: false,
+        proceduralPreset: DEFAULT_DANCE_PRESET,
+        requestId: danceRequestId.current,
+        source: 'ambient',
+      };
+    });
+  }, []);
 
-  return deployedCharacters.length > 0 ? (
+  if (deployedCharacters.length === 0) {
+    return <main className="app" />;
+  }
+
+  return (
     <main className="app">
       <OverlayPointerPassthrough />
       <OverlayChrome />
@@ -344,16 +355,14 @@ export function App() {
         animationRequest={animationRequest}
         animationUrls={animationUrls}
         audioLevel={audioLevel}
-        characterSize={settings.character_size}
-        mirror={false}
+        characterSize={settings.character_size || 1}
+        mirror={bodyOverride?.mirror ?? false}
         characters={deployedCharacters}
         onAnimationComplete={handleAnimationComplete}
-        playback="loop"
+        playback={commandActive ? 'once' : 'loop'}
         proceduralPreset={proceduralPreset}
         speaking={speaking}
       />
     </main>
-  ) : (
-    <main className="app" />
   );
 }
